@@ -814,7 +814,7 @@ class Clustering(FoldChanges):
                                           | (self.index_pairs[:, 1] == centroid))
             dist_array[i, :centroid] = np.squeeze(
                 self.distances[all_vs_centroid[:centroid]])
-            dist_array[i, (centroid+1)                       :] = np.squeeze(self.distances[all_vs_centroid[centroid:]])
+            dist_array[i, (centroid+1):] = np.squeeze(self.distances[all_vs_centroid[centroid:]])
             min_dist = np.min(dist_array[:(i+1), :], axis=0)
             # A fold change is chosen as the next centroid with a probability
             # proportional to its distance to the closest centroid among those
