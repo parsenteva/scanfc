@@ -27,7 +27,7 @@ mpl.rcParams['font.family'] = 'serif'
 
 class FoldChanges():
     """
-    A class represeting a set of fold changes (a measure of difference between
+    A class representing a set of fold changes (a measure of difference between
     the two experimental conditions over time).
 
     Attributes
@@ -68,14 +68,14 @@ class FoldChanges():
         Computes fold changes' pairwise distances.
     compute_fc_norms(dist='d2hat')
         Computes fold changes' norms with respect to the chosen distance.
-    copmpute_dist_mat(index_pairs, distances)
+    compute_dist_mat(index_pairs, distances)
         Transforms the set of pairwise distances into a distance matrix.
     compute_cross_distances(bary_means, bary_cov, cluster=None)
         Calculates the Wasserstein distance in different configurations.
     compute_warped_distance_pairs(max_warp_step=1, sign_pen=False,
                                   pen_param=0.01)
         Computes fold changes' pairwise distances for all considered warps.
-    copmpute_warped_dist_mat(index_pairs, warped_distances)
+    compute_warped_dist_mat(index_pairs, warped_distances)
         Calculates an optimal warping distance matrix and an optimal warp
         matrix from the set of pairwise warped distances.
 
@@ -242,7 +242,7 @@ class FoldChanges():
             fc_norms += np.sum(fc_var, axis=0)
         return np.sqrt(fc_norms)
 
-    def copmpute_dist_mat(self, index_pairs, distances):
+    def compute_dist_mat(self, index_pairs, distances):
         """
         Transforms the set of pairwise distances into a distance matrix.
 
@@ -350,7 +350,7 @@ class FoldChanges():
         Returns
         -------
         K : ndarray
-            Matrix characterising the joint distributions of random variables
+            Matrix characterizing the joint distributions of random variables
             with marginals 'cov1' and 'cov2'. For more details on different
             use cases see 'compute_cross_distances'.
 
@@ -359,7 +359,7 @@ class FoldChanges():
         if len(cov2.shape) == 2:
             M_sqrt = FoldChanges._sqrt_mat(cov2)
             K = FoldChanges._sqrt_mat(M_sqrt @ cov1 @ M_sqrt)
-        # 3D version to compute distances for a cluster simultaniously:
+        # 3D version to compute distances for a cluster simultaneously:
         if len(cov2.shape) == 3:
             cov2_reshaped = np.transpose(cov2, (2, 0, 1))
             M_sqrt = FoldChanges._sqrt_mat(cov2_reshaped)
@@ -425,14 +425,14 @@ class FoldChanges():
 
         K : ndarray
             Case 1: 4D array of shape (1, cluster_size, nb_time_pts, nb_time_pts)
-                    characterising the joint distributions of the fold changes
+                    characterizing the joint distributions of the fold changes
                     in the cluster and the barycenter. Central term in the
                     fixed point equation.
             Case 2: 4D array of shape (k, nb_var, nb_time_pts, nb_time_pts)
-                    characterising the joint distributions of the fold changes
+                    characterizing the joint distributions of the fold changes
                     and all the barycenters.
             Case 3: 4D array of shape (nb_var, nb_var, nb_time_pts, nb_time_pts)
-                    characterising the joint distributions of all
+                    characterizing the joint distributions of all
                     fold changes pairs.
 
         """
@@ -533,7 +533,7 @@ class FoldChanges():
                 warped_distances[max_warp_step+i] -= penalty - pen_param
         return index_pairs, warped_distances
 
-    def copmpute_warped_dist_mat(self, index_pairs, warped_distances):
+    def compute_warped_dist_mat(self, index_pairs, warped_distances):
         """
         Calculates an optimal warping distance matrix and an optimal warp
         matrix from the set of pairwise warped distances.
@@ -560,7 +560,7 @@ class FoldChanges():
         optimal_warp_mat : ndarray
             Optimal Warp matrix, 2D array with both dimensions equal to the
             number of fold changes (entities). The values of the upper
-            triangualar part of the matrix correspond to the warps minimizing
+            triangular part of the matrix correspond to the warps minimizing
             'warped_distances' (since for every entity pair the one earlier on
             the list and with a smaller index has been warped to get
             'warped_distances', while the other entity remains static),
@@ -582,7 +582,7 @@ class FoldChanges():
 
 class Clustering(FoldChanges):
     """
-    A class containing tools for clustrering fold changes, inherits from
+    A class containing tools for clustering fold changes, inherits from
     FoldChanges class.
 
     Attributes
@@ -619,7 +619,7 @@ class Clustering(FoldChanges):
     optimal_warp_mat : ndarray
         Optimal Warp matrix, 2D array with both dimensions equal to the
         number of fold changes (entities). The values of the upper
-        triangualar part of the matrix correspond to the warps minimizing
+        triangular part of the matrix correspond to the warps minimizing
         'warped_distances' (since for every entity pair the one earlier on
         the list and with a smaller index has been warped to get
         'warped_distances', while the other entity remains static),
@@ -645,10 +645,10 @@ class Clustering(FoldChanges):
     compute_barycenter(k, clusters, cov0, precision=1e-5)
         Calculates barycenters with respect to the Wasserstein distance for
         k clusters by solving a fixed point problem iteratively until the
-        stoping criterion is satisfied.
-    hiararchical_centroids(k, clusters)
+        stopping criterion is satisfied.
+    hierarchical_centroids(k, clusters)
         Chooses centroids among the fold changes in clusters after clustering.
-        Used for non-centroid based clustering methods, such as hiararchical
+        Used for non-centroid based clustering methods, such as hierarchical
         clustering.
     calculate_total_cost(centroids, clusters)
         Calculates total cost for all clusters, defined as the sum of distances
@@ -664,7 +664,7 @@ class Clustering(FoldChanges):
                   tree_cutoff=5, silhouette=False, umap_color_labels=None,
                   plot_umap_labels=False)
         Performs a series of clustering attempts of a set of random fold
-        changes estimatorsfor different numbers of clusters by trying
+        changes estimators for different numbers of clusters by trying
         multiple random clusters' initializations and choosing the attempt
         producing the best outcome (in the cases where random initializations
         are applicable).
@@ -765,10 +765,10 @@ class Clustering(FoldChanges):
             if self.dist in ('d2hat', 'hellinger'):
                 if time_warp:
                     (self.dist_mat,
-                     self.optimal_warp_mat) = self.copmpute_warped_dist_mat(self.index_pairs,
+                     self.optimal_warp_mat) = self.compute_warped_dist_mat(self.index_pairs,
                                                                             warped_distances)
                 else:
-                    self.dist_mat = self.copmpute_dist_mat(self.index_pairs,
+                    self.dist_mat = self.compute_dist_mat(self.index_pairs,
                                                            self.distances)
             if self.dist == 'wasserstein':
                 fc_var = np.diagonal(self.cov, axis1=1, axis2=2)
@@ -951,7 +951,7 @@ class Clustering(FoldChanges):
         """
         Calculates barycenters with respect to the Wasserstein distance for
         k clusters by solving a fixed point problem iteratively until the
-        stoping criterion is satisfied.
+        stopping criterion is satisfied.
 
         Parameters
         ----------
@@ -962,8 +962,8 @@ class Clustering(FoldChanges):
             between 0 and k-1 indicating which cluster every fold change
             belongs to.
         cov0 : ndarray
-            2D array of shape (nb_time_pts, nb_time_pts), a symetric positive
-            definite matrix that initializes the barycenters' covasriance
+            2D array of shape (nb_time_pts, nb_time_pts), a symmetric positive
+            definite matrix that initializes the barycenters' covariance
             matrices.
         precision : float, optional
             Stopping criterion, the fixed point equation iterations stop when
@@ -1024,10 +1024,10 @@ class Clustering(FoldChanges):
             all_costs[i] = new_cost
         return bary_means, bary_cov, all_costs
 
-    def hiararchical_centroids(self, k, clusters):
+    def hierarchical_centroids(self, k, clusters):
         """
         Chooses centroids among the fold changes in clusters after clustering.
-        Used for non-centroid based clustering methods, such as hiararchical
+        Used for non-centroid based clustering methods, such as hierarchical
         clustering.
 
         Parameters
@@ -1066,7 +1066,7 @@ class Clustering(FoldChanges):
         Code from: https://scikit-learn.org/stable/auto_examples/cluster/plot_agglomerative_dendrogram.html
 
         Creates linkage matrix and then plots the dendrogram. Used in
-        hiararchical clustering to choose the number of clusters.
+        hierarchical clustering to choose the number of clusters.
 
         """
 
@@ -1121,7 +1121,7 @@ class Clustering(FoldChanges):
         Calculates total comparable cost for all clusters, defined as the sum
         of distances between all fold change pairs in each cluster with respect
         to the distance matrix. Used to compare clustering performed with
-        different methods (disrance matrix should be the same).
+        different methods (distance matrix should be the same).
 
         Parameters
         ----------
@@ -1161,7 +1161,7 @@ class Clustering(FoldChanges):
                 - 'k-medoids' (default, coupled with d2hat distance or
                 Hellinger distance),
                 - 'wass k-means' (Wasserstein k-means),
-                - 'hierarchical' (hierarchical clustering basec on
+                - 'hierarchical' (hierarchical clustering based on
                 d2hat distance),
                 - 'umap' (UMAP projection of the d2hat distance matrix with
                 subsequent k-means clustering of the projection coordinates).
@@ -1232,7 +1232,6 @@ class Clustering(FoldChanges):
             while not flag:
                 clusters = self.assign_clusters(centroids, method=method)
                 total_cost = self.calculate_total_cost(centroids, clusters)
-                # if i%100 == 0:
                 if verbose > 0:
                     print('Iteration ', i)
                     print('Total cost: ', total_cost)
@@ -1253,7 +1252,6 @@ class Clustering(FoldChanges):
             bary_var = self.cov[:, centroids_int, centroids_int]
             id_tensor = (np.repeat(np.identity(self.nb_time_pts), k, axis=1).
                          reshape((self.nb_time_pts, self.nb_time_pts, k)))
-            #M1 = np.tensordot(sigma1.T, id_tensor, axes=2)
             bary_cov = np.einsum('ijk,ik->ijk', id_tensor, bary_var)
             while not flag:
                 cov0 = spd(self.nb_time_pts)
@@ -1278,7 +1276,7 @@ class Clustering(FoldChanges):
             h_clustering = AgglomerativeClustering(n_clusters=k, affinity='precomputed',
                                                    linkage='complete')
             clusters = h_clustering.fit_predict(self.dist_mat)
-            centroids = self.hiararchical_centroids(k, clusters)
+            centroids = self.hierarchical_centroids(k, clusters)
             return clusters, centroids
         if method == 'umap':
             warnings.filterwarnings('ignore', '.*precomputed metric.*')
@@ -1287,7 +1285,7 @@ class Clustering(FoldChanges):
             sp_cl = KMeans(n_clusters=k, n_init=nb_rep_umap,
                            random_state=self.random_gen).fit(fit_umap)
             clusters = sp_cl.labels_
-            centroids = self.hiararchical_centroids(k, clusters)
+            centroids = self.hierarchical_centroids(k, clusters)
 
             if plot_umap:
                 if umap_color_labels is None:
@@ -1319,7 +1317,7 @@ class Clustering(FoldChanges):
                       plot_umap_labels=False):
         """
         Performs a series of clustering attempts of a set of random fold
-        changes estimatorsfor different numbers of clusters by trying
+        changes estimators for different numbers of clusters by trying
         multiple random clusters' initializations and choosing the attempt
         producing the best outcome (in the cases where random initializations
         are applicable).
@@ -1337,7 +1335,7 @@ class Clustering(FoldChanges):
                 - 'k-medoids' (default, coupled with d2hat distance or
                 Hellinger distance),
                 - 'wass k-means' (Wasserstein k-means),
-                - 'hierarchical' (hierarchical clustering basec on
+                - 'hierarchical' (hierarchical clustering based on
                 d2hat distance),
                 - 'umap' (UMAP projection of the d2hat distance matrix with
                 subsequent k-means clustering of the projection coordinates).
@@ -1350,7 +1348,7 @@ class Clustering(FoldChanges):
             advancement of clustering.
         disp_plot : bool, optional
             False by default, if True then plots the mean total cost curve with
-            standard diviations or the UMAP projection of the distance matrix
+            standard deviations or the UMAP projection of the distance matrix
             depending on the method.
         nb_best : int, optional
             Number of the best random initialization attempts to be taken into
@@ -1360,7 +1358,7 @@ class Clustering(FoldChanges):
             levels that are displayed. The default if 5.
         silhouette : bool, optional
             The default is False, if True then the mean silhouette score curve
-            with standard diviations is displayed along with the total costs.
+            with standard deviations is displayed along with the total costs.
         umap_color_labels : None or array-like, optional
             Relevant if method is 'umap'. If None (default), then the data
             points on the UMAP projection are colored with respect to the
@@ -1695,7 +1693,7 @@ class Clustering(FoldChanges):
                 If a dictionary, the keys are numbers of clusters considered,
                 and for each such number the value is the latter array.
             If centroid_type=='barycenter':
-                If ndarray, an array of barucenter means: 2D array of shape
+                If ndarray, an array of barycenter means: 2D array of shape
                 (nb_time_pts, k) representing final barycenter means for all
                 clusters. If a dictionary, the keys are numbers of clusters
                 considered, and for each such number the value is the latter
@@ -1893,10 +1891,10 @@ class NetworkInference(Clustering):
         2D array of shape (nb_var, nb_var) indicating whether the fold changes
         are connected (i.e. similar enough) or not. If the network is
         undirected, then has 0 for connected fold changes and 1 for not
-        connected (symmetric). A pair of fold changes is considered to be c
-        onnected if their distance-based similarity is bigger then the cutoff
+        connected (symmetric). A pair of fold changes is considered to be
+        connected if their distance-based similarity is bigger then the cutoff
         value, which is equal to the empirical quantile of the similarity
-        matrix correponding to the chosen sparsity. If the network is directed,
+        matrix corresponding to the chosen sparsity. If the network is directed,
         the matrix stops being symmetric, and the edges that exist according
         to the undirected case procedure become either 1 or 0 based on the
         corresponding warp: 1 for the edges with the corresponding warps being
@@ -1913,7 +1911,7 @@ class NetworkInference(Clustering):
                     figtitle='Fold changes network', figsize=(25,25),
                     obj_scale=1, graph_type='full', adj_mat_2=None,
                     shade_intersect=False)
-        Creates a NetworkX object respresenting the fold changes' network and
+        Creates a NetworkX object representing the fold changes' network and
         displays it in a block form arising from clusters. The network is
         represented with a graph where nodes are the considered entities and
         the edges are connections between them (i.e. ones in the adjacency
@@ -1947,7 +1945,7 @@ class NetworkInference(Clustering):
         between A and B, the annotation is of the form "% of predictive
         connections from B to A - total number of connections between
         A and B - % of predictive connections from A to B". In the case of
-        underected graph, the edges are annotated with the corresponding
+        undirected graph, the edges are annotated with the corresponding
         numbers of connections only.
     graph_analysis(clusters, nb_top=10)
         Performs a series of graph analyses of the fold changes network, in
@@ -2032,7 +2030,7 @@ class NetworkInference(Clustering):
             A pair of fold changes is considered to be connected if their
             distance-based similarity is bigger then the cutoff value, which
             is equal to the empirical quantile of the similarity matrix
-            correponding to the chosen sparsity. If the network is directed,
+            corresponding to the chosen sparsity. If the network is directed,
             the matrix stops being symmetric, and the edges that exist
             according to the undirected case procedure become either 1 or 0
             based on the corresponding warp: 1 for the edges with the
@@ -2103,7 +2101,7 @@ class NetworkInference(Clustering):
             If True, stochastic block model is initialized on the parameter
             space defined by the original model. If False (default),
             stochastic block model is initialized on the constrained parameter
-            space correspondig to base clustering.
+            space corresponding to base clustering.
         verbosity : int, optional
             Degree of verbosity. Scale from 0 (no message displayed) to 3.
             The default is 0.
@@ -2184,13 +2182,13 @@ class NetworkInference(Clustering):
                         sbm.pi_ = pi
                         sbm.alpha_ = alpha
                         sbm.tau_ = tau
-                        sbm_centroids = self.hiararchical_centroids(nb_blocks,
+                        sbm_centroids = self.hierarchical_centroids(nb_blocks,
                                                                     sbm_clusters)
                         if np.isnan(sbm_centroids).all():
                             existing_clusters = np.unique(sbm_clusters)
                             new_nb_blocks = len(existing_clusters)
                             sbm_centroids = np.repeat(np.nan, nb_blocks)
-                            sbm_centroids[existing_clusters] = self.hiararchical_centroids(new_nb_blocks,
+                            sbm_centroids[existing_clusters] = self.hierarchical_centroids(new_nb_blocks,
                                                                                            sbm_clusters)
                         successful_sbm = sbm.copy()
             # Case with clustering related constraints:
@@ -2234,7 +2232,7 @@ class NetworkInference(Clustering):
                         sbm.pi_ = pi
                         sbm.alpha_ = alpha
                         sbm.tau_ = tau
-                        sbm_centroids = self.hiararchical_centroids(nb_blocks,
+                        sbm_centroids = self.hierarchical_centroids(nb_blocks,
                                                                     sbm_clusters)
                         successful_sbm = sbm.copy()
         if was_ever_successful:
@@ -2245,7 +2243,7 @@ class NetworkInference(Clustering):
                         figsize=(25, 25), obj_scale=1, graph_type='full',
                         adj_mat_2=None, shade_intersect=False):
         """
-        Creates a NetworkX object respresenting the fold changes' network and
+        Creates a NetworkX object representing the fold changes' network and
         displays it in a block form arising from clusters. The network is
         represented with a graph where nodes are the considered entities and
         the edges are connections between them (i.e. ones in the adjacency
@@ -2265,21 +2263,21 @@ class NetworkInference(Clustering):
             False by default, if True and the path is given then the path is
             displayed on the graph with red nodes and thick red edges with the
             remaining edges thin and colored in light grey (the remaining
-            nodes are desplayed normally).
+            nodes are displayed normally).
         path : array-like or None, optional
             If not None (default), 1D container with strings (elements should
             belong to var_names) containing names of the entities as nodes
             in the path of interest (in the correct order).
         figsize : (float, float), optional
             Width and height of the figure(s). The default is (25,25).
-        obj_scale : foat, optional
+        obj_scale : float, optional
             Parameter used to control the scale of objects in the graph, which
             zooms in if bigger than 1 and zooms out if smaller than 1.
             The default is 1.
         graph_type : str, optional
             The following options are possible:
                 - 'full' (default) : the whole graph is displayed, with edges
-                colored in black if undirected, and grey for simulteneous
+                colored in black if undirected, and grey for simultaneous
                 and green for predictive connections if directed.
                 - 'intersection' : if adj_mat_2 is given, displays only the
                 intersection between the main network and the network defined
@@ -2297,7 +2295,7 @@ class NetworkInference(Clustering):
             If not None (default), 2D array of shape (nb_var, nb_var)
             indicating whether the fold changes are connected or not (same
             to adj_mat). Represents the adjacency matrix of some other set of
-            fols changes of interest. Should be based on the measurements for
+            fold changes of interest. Should be based on the measurements for
             the same entities as the base network for a proper comparison.
             Used if graph_type is 'intersection' or 'difference'.
 
@@ -2365,7 +2363,7 @@ class NetworkInference(Clustering):
                                            'red', inplace=True)
                 eweight_path = 10
                 ecolor_path = 'red'
-            # Defining characreristics for the cases with intersection, without
+            # Defining characteristics for the cases with intersection, without
             # intersection and with shaded difference:
             if (adj_mat_2 is not None) and (shade_intersect or graph_type != 'full'):
                 ecolor_inter_undir = (ecolor_main if graph_type == 'intersection'
@@ -2389,7 +2387,7 @@ class NetworkInference(Clustering):
                     undir_edges_zl[i] in all_edges_2_zl)]
                 undir_edges_no_int = np.delete(
                     undir_edges, undir_to_del, axis=0)
-                # Edges for the cases without intersectio and with shaded difference:
+                # Edges for the cases without intersection and with shaded difference:
                 if graph_type != 'intersection':
                     fc_graph.add_edges_from(undir_edges_no_int, color=ecolor_main,
                                             weight=eweight_main)
@@ -2518,7 +2516,7 @@ class NetworkInference(Clustering):
         Returns
         -------
         most_connected_members_within : ndarray
-            2D array of shape (nb_blocks, nb_components) containig indices
+            2D array of shape (nb_blocks, nb_components) containing indices
             in range (0, nb_var) of nb_components most connected components
             for each cluster (block).
 
@@ -2604,7 +2602,7 @@ class NetworkInference(Clustering):
             non-None, with 'path_e1_to_e2' having priority for the path
             construction.
         plot : bool, optional
-            If True (default), dispays a figure with the means of the fold
+            If True (default), displays a figure with the means of the fold
             changes in the path.
 
         Returns
@@ -2684,7 +2682,7 @@ class NetworkInference(Clustering):
         between A and B, the annotation is of the form "% of predictive
         connections from B to A - total number of connections between
         A and B - % of predictive connections from A to B". In the case of
-        underected graph, the edges are annotated with the corresponding
+        undirected graph, the edges are annotated with the corresponding
         numbers of connections only.
 
         Parameters
@@ -2910,26 +2908,26 @@ class NetworkInference(Clustering):
         top_bc = pd.Series(bc).sort_values(ascending=False).iloc[:nb_top].index
 
         # Summary:
-        all_mesure_indices = (top_hubs.union(top_auth).union(top_bc)
+        all_measure_indices = (top_hubs.union(top_auth).union(top_bc)
                               .union(top_degree).union(top_pagerank))
-        graph_analysis = pd.DataFrame(np.zeros((len(all_mesure_indices),
+        graph_analysis = pd.DataFrame(np.zeros((len(all_measure_indices),
                                                 6), dtype=int),
-                                      index=all_mesure_indices,
+                                      index=all_measure_indices,
                                       columns=['Cluster', 'Top degree',
                                                'Top central', 'Top hub',
                                                'Top authority', 'Top rank'])
         graph_analysis['Cluster'] = clusters[np.intersect1d(self.var_names,
-                                                            all_mesure_indices,
+                                                            all_measure_indices,
                                                             return_indices=True)[1]]
-        graph_analysis['Top degree'] = all_mesure_indices.isin(
+        graph_analysis['Top degree'] = all_measure_indices.isin(
             top_degree).astype(int)
-        graph_analysis['Top central'] = all_mesure_indices.isin(
+        graph_analysis['Top central'] = all_measure_indices.isin(
             top_bc).astype(int)
-        graph_analysis['Top hub'] = all_mesure_indices.isin(
+        graph_analysis['Top hub'] = all_measure_indices.isin(
             top_hubs).astype(int)
-        graph_analysis['Top authority'] = all_mesure_indices.isin(
+        graph_analysis['Top authority'] = all_measure_indices.isin(
             top_auth).astype(int)
-        graph_analysis['Top pagerank'] = all_mesure_indices.isin(
+        graph_analysis['Top pagerank'] = all_measure_indices.isin(
             top_pagerank).astype(int)
         graph_analysis['Total'] = graph_analysis.drop(
             columns='Cluster').sum(axis=1)
@@ -2980,7 +2978,7 @@ class NetworkInference(Clustering):
                 (l_paths_df.shape[0]), dtype=int)
             l_paths_df['Cluster score'] = np.zeros(
                 (l_paths_df.shape[0]), dtype=int)
-            # Iterate simulteneously on nodes of paths of length l:
+            # Iterate simultaneously on nodes of paths of length l:
             for c in range(l):
                 l_paths_df['Warp score'] += self.optimal_warp_mat[l_paths_df[c],
                                                                   l_paths_df[c+1]]
