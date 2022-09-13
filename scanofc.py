@@ -2450,12 +2450,18 @@ class NetworkInference(Clustering):
 
         graph_carac = graph_carac.set_index('gene')
         graph_carac = graph_carac.reindex(fc_graph.nodes())
-        # Creating a graph of centroids:
-        fc_centroids_graph = fc_graph.subgraph(self.var_names[centroids])
-        centroids_pos = nx.shell_layout(fc_centroids_graph, scale=1.3)
-
-        fc_positions = centroids_pos.copy()
+        # Assigning positions to centroids:
         nb_blocks = len(centroids)
+        theta = np.linspace(0, 1, len(centroids) + 1)[:-1] * 2 * np.pi
+        theta = theta.astype(np.float32)
+        centroids_pos = np.column_stack([np.cos(theta), np.sin(theta),
+                               np.zeros((len(centroids), 0))])
+        centroids_pos = nx.rescale_layout(centroids_pos, scale=1.3)
+        centroids_pos = dict(zip(self.var_names[centroids], centroids_pos))
+        centroids_pos_df = pd.DataFrame(centroids_pos).sort_values(0, axis=1)
+        centroids_pos_df.columns = self.var_names[centroids]
+        centroids_pos = centroids_pos_df.to_dict('list')
+        fc_positions = centroids_pos.copy()
         missing = []
         # Creating subgraphs for every cluster:
         for i in range(nb_blocks):
@@ -2757,9 +2763,11 @@ class NetworkInference(Clustering):
 
                 prop_warp_mat[j, i] = (np.count_nonzero(warps_of_connections_ji > 0) /
                                        (nb_connect_mat[i, j] if nb_connect_mat[i, j] != 0 else 1))
-                meso_graph.add_edge(i, j, width=nb_connect_mat[i, j],
+                meso_graph.add_edge(i, j,
+                                    width=nb_connect_mat[i, j] * obj_scale**2,
                                     arrowsize=prop_warp_mat[i, j])
-                meso_graph.add_edge(j, i, width=nb_connect_mat[i, j],
+                meso_graph.add_edge(j, i,
+                                    width=nb_connect_mat[i, j] * obj_scale**2,
                                     arrowsize=prop_warp_mat[j, i])
                 # Annotation:
                 if nb_connect_mat[i, j] != 0:
@@ -2774,7 +2782,12 @@ class NetworkInference(Clustering):
 
             # Plot the graph:
             plt.figure(figsize=(20, 20))
-            pos = nx.spring_layout(meso_graph, scale=0.9, seed=0)
+            theta = np.linspace(0, 1, nb_blocks + 1)[:-1] * 2 * np.pi
+            theta = theta.astype(np.float32)
+            pos = np.column_stack([np.cos(theta), np.sin(theta),
+                                   np.zeros((nb_blocks, 0))])
+            pos = nx.rescale_layout(pos, scale=0.9)
+            pos = dict(zip(meso_graph, pos))
             pos_df = pd.DataFrame(pos).sort_values(0, axis=1)
             pos_df.columns = range(nb_blocks)
             pos = pos_df.to_dict('list')
@@ -2804,7 +2817,8 @@ class NetworkInference(Clustering):
                 clusters_i_j_adj_mat = self.adj_mat[clusters ==
                                                     i, :][:, clusters == j]
                 nb_connect_mat[i, j] = clusters_i_j_adj_mat.sum()
-                meso_graph.add_edge(i, j, width=nb_connect_mat[i, j])
+                meso_graph.add_edge(i, j,
+                                    width=nb_connect_mat[i, j] * obj_scale**2)
                 # Annotation:
                 if nb_connect_mat[i, j] != 0:
                     edge_labels[(i, j)] = f"{nb_connect_mat[i, j]}"
@@ -2814,7 +2828,12 @@ class NetworkInference(Clustering):
 
             # Plot the graph:
             plt.figure(figsize=(20, 20))
-            pos = nx.spring_layout(meso_graph, scale=0.9, seed=0)
+            theta = np.linspace(0, 1, nb_blocks + 1)[:-1] * 2 * np.pi
+            theta = theta.astype(np.float32)
+            pos = np.column_stack([np.cos(theta), np.sin(theta),
+                                   np.zeros((nb_blocks,0))])
+            pos = nx.rescale_layout(pos, scale=0.9)
+            pos = dict(zip(meso_graph, pos))
             pos_df = pd.DataFrame(pos).sort_values(0, axis=1)
             pos_df.columns = range(nb_blocks)
             pos = pos_df.to_dict('list')
@@ -2833,7 +2852,8 @@ class NetworkInference(Clustering):
                                        node_size=np.array(list(node_size))
                                        * scale**4 / 2.5)
         nx.draw_networkx_edge_labels(meso_graph, pos, edge_labels=edge_labels,
-                                     font_size=15, font_family='serif',
+                                     font_size=15 * obj_scale**2,
+                                     font_family='serif',
                                      bbox={'fc': 'w', 'ec': 'k'})
         plt.show()
 
