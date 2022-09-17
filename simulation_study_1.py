@@ -307,7 +307,7 @@ for i, cl in enumerate(range(k)):
                                               cl+1, random_gen=random_gen)
     axs[i].plot(plot_time_points, sim_means_plot_0)
     sim_means_0[:, np.squeeze(cluster_i)] = sim_means_plot_0[time_p_ind, :]
-fig.suptitle('Study 1 (example)): functional representation of simulated means',
+fig.suptitle('Study 1: functional representation of simulated means',
              fontsize=16)
 plt.tight_layout()
 plt.show()
@@ -346,7 +346,7 @@ for i, cl in enumerate(range(k)):
                                             cl+1, random_gen=random_gen)
     axs[i].plot(plot_time_points, sim_means_plot)
     sim_means[:, np.squeeze(cluster_i)] = sim_means_plot[time_p_ind, :]
-fig.suptitle('Study 1 (example)): functional representation of simulated means',
+fig.suptitle('Study 1: functional representation of simulated means',
              fontsize=16)
 plt.tight_layout()
 plt.show()
