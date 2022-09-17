@@ -9,7 +9,6 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from scanofc import Clustering
 from sklearn.metrics.cluster import v_measure_score, adjusted_rand_score
-import warnings
 mpl.style.use('seaborn')
 mpl.rcParams['font.family'] = 'serif'
 
@@ -207,8 +206,6 @@ def perform_simulation_study(k, sim_clusters, sim_means, sim_cov, time_points,
     sim_results_ars = np.zeros((nb_sim_rep, 4))
     sim_results_vm = np.zeros((nb_sim_rep, 4))
     sim_results_cost = np.zeros((nb_sim_rep, 4))
-
-    warnings.filterwarnings('ignore', '.*precomputed metric.*')
 
     alg = 'k-means-like'
     for i in range(nb_sim_rep):
