@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Thu Oct 21 13:50:48 2021
+Script performing the first series of simulation studies.
 
-@author: polina
+@author: Polina Arsenteva
 """
 import itertools
 import numpy as np
