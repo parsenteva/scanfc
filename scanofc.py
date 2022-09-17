@@ -1,5 +1,5 @@
 """
-ScanOFC : Statistical framework for Clustering with Alignment and 
+ScanOFC : Statistical framework for Clustering with Alignment and
     Network inference of Omic Fold Changes.
 
 @author: Polina Arsenteva
@@ -2117,7 +2117,17 @@ class NetworkInference(Clustering):
 
         Returns
         -------
-        None.
+        successful_sbm : SBM instance or None
+            Successfully trained stochastic block model, or None in case of
+            failure.
+        sbm_centroids : ndarray or None
+            1D array of length k containing indices in range (0, nb_var) of
+            the fold changes that have been chosen as centroids (calculated
+             after stochastic block model is inferred) if SBM is successfully
+             inferred, otherwise None.
+        comp_cost : float or None
+            Value of the total comparable cost if SBM is successfully inferred,
+            otherwise None.
 
         """
         eps = 1e-2 / self.nb_var
