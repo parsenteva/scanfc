@@ -124,12 +124,15 @@ class FoldChanges():
             means is not None and cov is not None), assert_str
         if data is not None:
             dim_data = data.shape
-            means = np.mean(data, axis=2)
+            means = np.nanmean(data, axis=2)
             covmat = np.zeros(
                 (dim_data[0], dim_data[1], dim_data[3], dim_data[3]))
             for t in range(dim_data[0]):
                 for c in range(dim_data[1]):
-                    covmat[t, c, :, :] = np.cov(data[t, c], rowvar=False)
+                    # Masking missing replicates:
+                    masked_covmat = np.ma.masked_invalid(data[t, c])
+                    covmat[t, c, :, :] = np.ma.getdata(np.ma.cov(masked_covmat, 
+                                                                 rowvar=False))
             # Fold changes = case - control
             fc_means = means[:, 1, :] - means[:, 0, :]
             fc_cov = covmat[:, 1, :, :] + covmat[:, 0, :, :]
