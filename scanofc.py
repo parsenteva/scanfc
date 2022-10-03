@@ -2253,7 +2253,8 @@ class NetworkInference(Clustering):
 
     def compute_network(self, clusters, centroids, draw_path=False, path=None,
                         figsize=(25, 25), obj_scale=1, graph_type='full',
-                        adj_mat_2=None, shade_intersect=False):
+                        adj_mat_2=None, shade_intersect=False, 
+                        degree_view=False):
         """
         Creates a NetworkX object representing the fold changes' network and
         displays it in a block form arising from clusters. The network is
@@ -2310,6 +2311,10 @@ class NetworkInference(Clustering):
             fold changes of interest. Should be based on the measurements for
             the same entities as the base network for a proper comparison.
             Used if graph_type is 'intersection' or 'difference'.
+        degree_view : bool, optional
+            If True, the sizes of nodes reflect their degrees (the relationship
+            is increasing and non-linear). Otherwise, all nodes have the same 
+            sizes, except for the centroids that are bigger then the others.
 
         Returns
         -------
@@ -2319,9 +2324,16 @@ class NetworkInference(Clustering):
         sparse_simil_mat = sparse.csr_matrix(self.adj_mat)
         # Extracting edges:
         indices_ones_graph = list(sparse_simil_mat.nonzero())
+        # Node sizes:
+        if degree_view:
+            node_degrees = self.adj_mat + self.adj_mat.T
+            node_degrees[node_degrees == 2] = 1
+            node_degrees = node_degrees.sum(axis = 0)
+            node_size = np.exp(1 + 5 * node_degrees / node_degrees.max()) * 20 * obj_scale
+        else:
+            node_size = np.ones(self.nb_var) * 1000 * obj_scale
+            node_size[centroids] = 3500 * obj_scale
         # Create a data frame for node characteristics:
-        node_size = np.ones(self.nb_var) * 1000 * obj_scale
-        node_size[centroids] = 3500 * obj_scale
         graph_carac = pd.DataFrame(
             {'gene': self.var_names, 'node size': node_size})
         if shade_intersect and (adj_mat_2 is not None):
@@ -2455,6 +2467,7 @@ class NetworkInference(Clustering):
             all_edges = np.array(indices_ones_graph).T
             fc_graph.add_edges_from(all_edges, color=ecolor_main,
                                     weight=eweight_main)
+            
         nodes_dict = {}
         for i in range(self.nb_var):
             nodes_dict[i] = self.var_names[i]
