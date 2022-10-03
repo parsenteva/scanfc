@@ -2039,8 +2039,9 @@ class NetworkInference(Clustering):
             based on the corresponding warp: 1 for the edges with the
             corresponding warps being positive (predictive) or 0
             (simultaneous), and 0 for those with negative warps (target).
-            Either 'adj_mat' or 'dist_mat' have to be non-None, with 'adj_mat'
-            having priority for the adjacency matrix definition.
+            Either 'adj_mat' or 'data' or 'means' and 'cov' have to be 
+            non-None, with 'adj_mat' having priority for the adjacency 
+            matrix definition.
 
         Returns
         -------
@@ -2054,8 +2055,6 @@ class NetworkInference(Clustering):
                          random_gen=random_gen)
         self.sparsity = sparsity
         self.directed = directed
-        assert_str = "Either 'adj_mat' or 'dist_mat' have to be non-None"
-        assert (adj_mat is not None) or (self.dist_mat is not None), assert_str
         if adj_mat is not None:
             self.adj_mat = adj_mat
             if not self.directed:
