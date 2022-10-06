@@ -40,7 +40,7 @@ class FoldChanges():
         3D array of shape (nb_time_pts, nb_var, nb_var) containing
         data with `float` type, representing fold changes' nb_var x nb_var
         shaped covariance matrices for each time point. Time-wise
-        cross-covariances are assumes to be 0 due to experimental design.
+        cross-covariances are assumed to be 0 due to experimental design.
         In case of Hellinger distance, can also be 4-dimensional (natural form):
         (nb_time_pts, nb_time_pts, nb_var, nb_var).
     sd : ndarray
