@@ -131,17 +131,17 @@ class FoldChanges():
                 for c in range(dim_data[1]):
                     # Masking missing replicates:
                     masked_covmat = np.ma.masked_invalid(data[t, c])
-                    covmat[t, c, :, :] = np.ma.getdata(np.ma.cov(masked_covmat, 
+                    covmat[t, c, :, :] = np.ma.getdata(np.ma.cov(masked_covmat,
                                                                  rowvar=False))
             # Fold changes = case - control
             fc_means = means[:, 1, :] - means[:, 0, :]
             fc_cov = covmat[:, 1, :, :] + covmat[:, 0, :, :]
             self.means = fc_means
             self.cov = fc_cov
-            self.sd = np.sqrt(np.diagonal(self.cov, axis1=1, axis2=2))
         else:
             self.means = means
             self.cov = cov
+        self.sd = np.sqrt(np.diagonal(self.cov, axis1=1, axis2=2))
         self.nb_var = (len(var_names) if var_names is not None
                        else self.means.shape[1])
         self.nb_time_pts = (len(time_points) if time_points is not None
@@ -769,10 +769,10 @@ class Clustering(FoldChanges):
                 if time_warp:
                     (self.dist_mat,
                      self.optimal_warp_mat) = self.compute_warped_dist_mat(self.index_pairs,
-                                                                            warped_distances)
+                                                                           warped_distances)
                 else:
                     self.dist_mat = self.compute_dist_mat(self.index_pairs,
-                                                           self.distances)
+                                                          self.distances)
             if self.dist == 'wasserstein':
                 fc_var = np.diagonal(self.cov, axis1=1, axis2=2)
                 id_tensor = (np.repeat(np.identity(self.nb_time_pts),
@@ -817,7 +817,7 @@ class Clustering(FoldChanges):
                                           | (self.index_pairs[:, 1] == centroid))
             dist_array[i, :centroid] = np.squeeze(
                 self.distances[all_vs_centroid[:centroid]])
-            dist_array[i, (centroid+1):] = np.squeeze(self.distances[all_vs_centroid[centroid:]])
+            dist_array[i, (centroid+1)                       :] = np.squeeze(self.distances[all_vs_centroid[centroid:]])
             min_dist = np.min(dist_array[:(i+1), :], axis=0)
             # A fold change is chosen as the next centroid with a probability
             # proportional to its distance to the closest centroid among those
@@ -2039,8 +2039,8 @@ class NetworkInference(Clustering):
             based on the corresponding warp: 1 for the edges with the
             corresponding warps being positive (predictive) or 0
             (simultaneous), and 0 for those with negative warps (target).
-            Either 'adj_mat' or 'data' or 'means' and 'cov' have to be 
-            non-None, with 'adj_mat' having priority for the adjacency 
+            Either 'adj_mat' or 'data' or 'means' and 'cov' have to be
+            non-None, with 'adj_mat' having priority for the adjacency
             matrix definition.
 
         Returns
@@ -2122,7 +2122,7 @@ class NetworkInference(Clustering):
         successful_sbm : SBM instance or None
             Successfully trained stochastic block model, or None in case of
             failure.
-        sbm_centroids : ndarray or None
+,        sbm_centroids : ndarray or None
             1D array of length k containing indices in range (0, nb_var) of
             the fold changes that have been chosen as centroids (calculated
              after stochastic block model is inferred) if SBM is successfully
@@ -2253,7 +2253,7 @@ class NetworkInference(Clustering):
 
     def compute_network(self, clusters, centroids, draw_path=False, path=None,
                         figsize=(25, 25), obj_scale=1, graph_type='full',
-                        adj_mat_2=None, shade_intersect=False, 
+                        adj_mat_2=None, shade_intersect=False,
                         degree_view=False):
         """
         Creates a NetworkX object representing the fold changes' network and
@@ -2313,7 +2313,7 @@ class NetworkInference(Clustering):
             Used if graph_type is 'intersection' or 'difference'.
         degree_view : bool, optional
             If True, the sizes of nodes reflect their degrees (the relationship
-            is increasing and non-linear). Otherwise, all nodes have the same 
+            is increasing and non-linear). Otherwise, all nodes have the same
             sizes, except for the centroids that are bigger then the others.
 
         Returns
@@ -2328,8 +2328,9 @@ class NetworkInference(Clustering):
         if degree_view:
             node_degrees = self.adj_mat + self.adj_mat.T
             node_degrees[node_degrees == 2] = 1
-            node_degrees = node_degrees.sum(axis = 0)
-            node_size = np.exp(1 + 5 * node_degrees / node_degrees.max()) * 20 * obj_scale
+            node_degrees = node_degrees.sum(axis=0)
+            node_size = np.exp(1 + 5 * node_degrees /
+                               node_degrees.max()) * 20 * obj_scale
         else:
             node_size = np.ones(self.nb_var) * 1000 * obj_scale
             node_size[centroids] = 3500 * obj_scale
@@ -2467,7 +2468,7 @@ class NetworkInference(Clustering):
             all_edges = np.array(indices_ones_graph).T
             fc_graph.add_edges_from(all_edges, color=ecolor_main,
                                     weight=eweight_main)
-            
+
         nodes_dict = {}
         for i in range(self.nb_var):
             nodes_dict[i] = self.var_names[i]
@@ -2480,7 +2481,7 @@ class NetworkInference(Clustering):
         theta = np.linspace(0, 1, len(centroids) + 1)[:-1] * 2 * np.pi
         theta = theta.astype(np.float32)
         centroids_pos = np.column_stack([np.cos(theta), np.sin(theta),
-                               np.zeros((len(centroids), 0))])
+                                         np.zeros((len(centroids), 0))])
         centroids_pos = nx.rescale_layout(centroids_pos, scale=1.3)
         centroids_pos = dict(zip(self.var_names[centroids], centroids_pos))
         centroids_pos_df = pd.DataFrame(centroids_pos).sort_values(0, axis=1)
@@ -2657,7 +2658,8 @@ class NetworkInference(Clustering):
         nx.relabel_nodes(fc_graph, dict(enumerate(self.var_names)), copy=False)
 
         # Compute shortest path:
-        path_e1_to_e2 = nx.shortest_path(fc_graph, entity_1, entity_2)
+        if path_e1_to_e2 is None:
+            path_e1_to_e2 = nx.shortest_path(fc_graph, entity_1, entity_2)
         path_e1_to_e2_warps = []
         s_path = "Gene path: "
         s_warps = "Warps: "
@@ -2856,7 +2858,7 @@ class NetworkInference(Clustering):
             theta = np.linspace(0, 1, nb_blocks + 1)[:-1] * 2 * np.pi
             theta = theta.astype(np.float32)
             pos = np.column_stack([np.cos(theta), np.sin(theta),
-                                   np.zeros((nb_blocks,0))])
+                                   np.zeros((nb_blocks, 0))])
             pos = nx.rescale_layout(pos, scale=0.9)
             pos = dict(zip(meso_graph, pos))
             pos_df = pd.DataFrame(pos).sort_values(0, axis=1)
@@ -2954,7 +2956,7 @@ class NetworkInference(Clustering):
 
         # Summary:
         all_measure_indices = (top_hubs.union(top_auth).union(top_bc)
-                              .union(top_degree).union(top_pagerank))
+                               .union(top_degree).union(top_pagerank))
         graph_analysis = pd.DataFrame(np.zeros((len(all_measure_indices),
                                                 6), dtype=int),
                                       index=all_measure_indices,
