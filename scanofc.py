@@ -2039,9 +2039,11 @@ class NetworkInference(Clustering):
             based on the corresponding warp: 1 for the edges with the
             corresponding warps being positive (predictive) or 0
             (simultaneous), and 0 for those with negative warps (target).
-            Either 'adj_mat' or 'data' or 'means' and 'cov' have to be
-            non-None, with 'adj_mat' having priority for the adjacency
-            matrix definition.
+            If 'adj_mat' is specified, the adjacency matrix is defined based 
+            its value, otherwise calculated based on the distance matrix and 
+            the optimal distance matrix. NB: in the former case 'optimal_warp_mat'
+            is recalculated to correspond to 'adj_mat', however 'dist_mat'
+            remains the same.
 
         Returns
         -------
@@ -2060,6 +2062,13 @@ class NetworkInference(Clustering):
             if not self.directed:
                 is_sym = np.array_equal(self.adj_mat, self.adj_mat.T)
                 assert is_sym, "Adjacency matrix for an undirected graph has to be symmetric."
+            else:
+                self.optimal_warp_mat[(self.adj_mat == 1) 
+                                      & (self.adj_mat.T == 1)] = 0
+                self.optimal_warp_mat[(self.adj_mat == 1) 
+                                      & (self.adj_mat.T == 0)] = 1
+                self.optimal_warp_mat[(self.adj_mat == 0) 
+                                      & (self.adj_mat.T == 1)] = -1
         # Calculating adjacency matrix based on the distance matrix:
         elif self.dist_mat is not None:
             max_dist = np.max(self.dist_mat)
