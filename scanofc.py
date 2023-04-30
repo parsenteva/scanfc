@@ -3,6 +3,7 @@ ScanOFC : Statistical framework for Clustering with Alignment and
     Network inference of Omic Fold Changes.
 
 @author: Polina Arsenteva
+
 """
 import itertools
 import warnings
@@ -1301,16 +1302,17 @@ class Clustering(FoldChanges):
                 legend_elements = [Line2D([0], [0], marker='o', color=c,
                                           markersize=7, linewidth=0,
                                           label='Cluster '+str(i+1)) for i, c in enumerate(cmap)]
-                fig = plt.figure(figsize=(15, 7))
+                fig = plt.figure(figsize=(12, 5))
                 ax = fig.subplots(1, 1)
+                mpl.rcParams['font.family'] = 'serif'
                 ax.scatter(fit_umap[:, 0], fit_umap[:, 1], c=colors, s=70,
                            alpha=0.7)
-                ax.legend(handles=legend_elements, fontsize=16)
+                ax.legend(handles=legend_elements, fontsize=12)
                 if plot_umap_labels:
                     for i, txt in enumerate(range(self.nb_var)):
                         ax.annotate(txt, (fit_umap[i, 0], fit_umap[i, 1]),
                                     fontsize=11)
-                plt.title(f'UMAP, {k} clusters', fontsize=20)
+                plt.title(f'UMAP, {k} clusters', fontsize=15)
                 plt.show()
             return clusters, centroids
 
@@ -1458,11 +1460,10 @@ class Clustering(FoldChanges):
                         mean_best_silhouette[it] = np.mean(best_silhouette)
                         std_best_silhouette[it] = np.std(best_silhouette)
                     if self.time_warp:
-                        corresp_centr = all_centroids[str(
-                            j)][all_clusters[str(j)]]
+                        corresp_centr = all_centroids[str(j)][all_clusters[str(j)]]
                         all_warps[str(j)] = self.optimal_warp_mat[np.arange(0, self.nb_var),
                                                                   corresp_centr]
-                if disp_plot is True:
+                if disp_plot:
                     if silhouette:
                         fig = plt.figure(figsize=(12, 5))
                         axs = fig.subplots(1, 2)
@@ -2044,7 +2045,6 @@ class NetworkInference(Clustering):
             the optimal distance matrix. NB: in the former case 'optimal_warp_mat'
             is recalculated to correspond to 'adj_mat', however 'dist_mat'
             remains the same.
-
         Returns
         -------
         None.
@@ -2262,8 +2262,8 @@ class NetworkInference(Clustering):
 
     def compute_network(self, clusters, centroids, draw_path=False, path=None,
                         figsize=(25, 25), obj_scale=1, graph_type='full',
-                        adj_mat_2=None, shade_intersect=False,
-                        degree_view=False):
+                        adj_mat_2=None, clusters_2=None, centroids_2=None,
+                        shade_intersect=False, degree_view=False):
         """
         Creates a NetworkX object representing the fold changes' network and
         displays it in a block form arising from clusters. The network is
@@ -2307,12 +2307,6 @@ class NetworkInference(Clustering):
                 - 'difference' : if adj_mat_2 is given, displays the main
                 network without its intersection with the network defined
                 by adj_mat_2.
-        shade_intersect : bool, optional
-            If True, adj_mat_2 is given, and graph_type is 'full' (makes no
-            difference if 'intersection' or 'difference'), displays the entire
-            graph but shades the intersection by coloring in lightgrey the
-            nodes and the edges that belong entirely to the intersection with
-            the network defined by adj_mat_2. The default is False.
         adj_mat_2 : ndarray or None, optional
             If not None (default), 2D array of shape (nb_var, nb_var)
             indicating whether the fold changes are connected or not (same
@@ -2320,16 +2314,40 @@ class NetworkInference(Clustering):
             fold changes of interest. Should be based on the measurements for
             the same entities as the base network for a proper comparison.
             Used if graph_type is 'intersection' or 'difference'.
+        clusters_2 : ndarray, optional
+            If not None (default), 1D array of length nb_var containing 
+            integers indicating clusters to which the fold changes are assigned.
+            This alternative clustering specification serves to color the nodes
+            with respect to the corresponding clustering (typically to compare
+            clusters to clusters_2).
+        centroids_2 : ndarray, optional
+            If not None (default), 1D array of length k containing indices in 
+            range (0, nb_var) of the fold changes that act as centroids. This
+            second sets of centroids associated with an alternative clustering
+            clusters_2 is used only for centroid node sizes (typically to 
+            compare centroids to centroids_2).
+        shade_intersect : bool, optional
+            If True, adj_mat_2 is given, and graph_type is 'full' (makes no
+            difference if 'intersection' or 'difference'), displays the entire
+            graph but shades the intersection by coloring in lightgrey the
+            nodes and the edges that belong entirely to the intersection with
+            the network defined by adj_mat_2. The default is False.
         degree_view : bool, optional
             If True, the sizes of nodes reflect their degrees (the relationship
-            is increasing and non-linear). Otherwise, all nodes have the same
-            sizes, except for the centroids that are bigger then the others.
+            is increasing and non-linear). Otherwise (default), all nodes have 
+            the samesizes, except for the centroids that are bigger then the 
+            others.
 
         Returns
         -------
         None.
 
         """
+        if (clusters_2 is not None) and (centroids_2 is not None):
+            assert_cond = ((len(centroids_2) == len(centroids)) 
+                           and (len(np.unique(clusters_2)) == len(np.unique(clusters_2))))
+            assert_str = "Number of clusters in the second set should match that in the first."
+            assert assert_cond, assert_str
         sparse_simil_mat = sparse.csr_matrix(self.adj_mat)
         # Extracting edges:
         indices_ones_graph = list(sparse_simil_mat.nonzero())
@@ -2342,7 +2360,8 @@ class NetworkInference(Clustering):
                                node_degrees.max()) * 20 * obj_scale
         else:
             node_size = np.ones(self.nb_var) * 1000 * obj_scale
-            node_size[centroids] = 3500 * obj_scale
+            centroids_size = centroids_2 if centroids_2 is not None else centroids
+            node_size[centroids_size] = 3500 * obj_scale
         # Create a data frame for node characteristics:
         graph_carac = pd.DataFrame(
             {'gene': self.var_names, 'node size': node_size})
@@ -2354,9 +2373,11 @@ class NetworkInference(Clustering):
 
         cmap = cm.get_cmap('gist_rainbow')
         cl_colors = cmap(np.linspace(0.15, 1, clusters.max() + 1))
+        clusters_color = clusters_2 if clusters_2 is not None else clusters
         # Shading nodes in the intersection (if relevant):
         node_color = ['lightgrey' if (graph_carac['intersect']
-                                      .iloc[i]) else cl_colors[clusters[i]] for i in range(self.nb_var)]
+                                      .iloc[i]) 
+                      else cl_colors[clusters_color[i]] for i in range(self.nb_var)]
         graph_carac['color'] = node_color
         ecolor_main = 'black'
         eweight_main = 0.2
@@ -2521,16 +2542,16 @@ class NetworkInference(Clustering):
         edge_widths = nx.get_edge_attributes(fc_graph, 'weight').values()
 
         plt.figure(figsize=figsize)
-        nx.draw(fc_graph, fc_positions, with_labels=True, width=list(edge_widths),
-                node_color=graph_carac['color'], font_size=8*obj_scale,
-                node_size=graph_carac['node size'], edge_color=edge_colors,
-                alpha=0.5, font_family='serif')
+        nx.draw_networkx(fc_graph, fc_positions, with_labels=True, 
+                         width=list(edge_widths), node_color=graph_carac['color'], 
+                         font_size=8*obj_scale, node_size=graph_carac['node size'], 
+                         edge_color=edge_colors, alpha=0.5, font_family='serif')
         plt.margins(0.0)
         plt.show()
         return
 
     def plot_most_connected_members(self, clusters, centroids=None, warps=None,
-                                    nb_components=5):
+                                    nb_components=5, figsize=None):
         """
         Identifies the most connected components within each cluster, and
         displays a plot of the corresponding fold changes' means. If warps are
@@ -2553,6 +2574,8 @@ class NetworkInference(Clustering):
         nb_components : int, optional
             Number of the most connected components to select in each cluster.
             The default is 5.
+        figsize : (float, float), optional
+            Width and height of the figure(s). The default is None.
 
         Returns
         -------
@@ -2573,10 +2596,15 @@ class NetworkInference(Clustering):
 
         mpl.rcParams['lines.linewidth'] = 3
         sns.set_style("darkgrid")
+        if figsize is None:
+            figsize = (10, nb_blocks * 6)
         fig, axs = plt.subplots(nb_blocks + 1, 1,
-                                figsize=(10, nb_blocks * 6), sharey=False,
+                                figsize=figsize, sharey=False,
                                 gridspec_kw={"height_ratios": ht_ratios})
+        label_scale = min(figsize) / 10
         for i in range(nb_blocks):
+            #ax_i = axs[i//nb_cols+1] if (nb_cols > 1) and (nb_rows != 1) else axs
+            #col_to_plot = i % nb_cols if nb_cols != 1 else i
             if centroids is not None:
                 centroid_str = self.var_names[centroids[i]]
                 print(f'Cluster {i+1}: ' + centroid_str)
@@ -2604,18 +2632,19 @@ class NetworkInference(Clustering):
             if centroids is not None:
                 # Centroids used as subtitles corresponding to clusters:
                 axs[i+1].set_title('Centroid: ' + centroid_str, color='red')
-                axs[i+1].legend(legend_i, fontsize=14, labelspacing=0.2)
+                axs[i+1].legend(legend_i, fontsize=14 * label_scale, 
+                                labelspacing=0.2 * label_scale)
             axs[i+1].axhline(y=0, xmin=0, xmax=self.time_points[-1]+1,
                              linestyle='--', color='k')
         axs[0].axis("off")
         axs[0].set_title(f"{nb_components} most connected \n members within clusters",
-                         fontweight='bold', fontsize=20)
+                         fontweight='bold', fontsize=20 * label_scale)
         fig.tight_layout()
         plt.show()
         return most_connected_members_within
 
     def compute_entity_path(self, path_e1_to_e2=None, entity_1=None,
-                            entity_2=None, plot=True):
+                            entity_2=None, plot=True, figsize=(10, 7)):
         """
         If entity_1 and entity_2 are given (and path_e1_to_e2 is not),
         computes a shortest path from entity_1 to entity_2, and plots a figure
@@ -2645,6 +2674,8 @@ class NetworkInference(Clustering):
         plot : bool, optional
             If True (default), displays a figure with the means of the fold
             changes in the path.
+        figsize : (float, float), optional
+            Width and height of the figure(s). The default is (10,7).
 
         Returns
         -------
@@ -2676,7 +2707,7 @@ class NetworkInference(Clustering):
         if plot:
             mpl.style.use('seaborn')
             mpl.rcParams['font.family'] = 'serif'
-            fig, ax = plt.subplots(figsize=(13, 10))
+            fig, ax = plt.subplots(figsize=figsize)
             cmap = cm.get_cmap('gist_rainbow')
             curve_colors = cmap(np.linspace(0, 1, len(path_e1_to_e2)))
         for i, e in enumerate(path_e1_to_e2[:-1]):
@@ -2701,7 +2732,7 @@ class NetworkInference(Clustering):
             ax.legend(path_e1_to_e2, fontsize=12, labelspacing=0.2)
             ax.set_title(s_path, fontweight='bold', fontsize=16)
             fig.tight_layout()
-            plt.plot()
+            plt.show()
         print(s_path)
         if self.time_warp:
             print(s_warps)
@@ -2709,7 +2740,7 @@ class NetworkInference(Clustering):
         return path_e1_to_e2
 
     def draw_mesoscopic(self, clusters, centroids, obj_scale=1,
-                        node_label_size=30):
+                        node_label_size=30, figsize=(20, 20)):
         """
         Displays a mesoscopic representation of the fold changes network, i.e.
         a graph with k=len(centroids) nodes representing clusters, each labeled
@@ -2742,6 +2773,8 @@ class NetworkInference(Clustering):
         node_label_size : int, optional
             Font size for text labels on nodes (names of centroids).
             The default is 30.
+        figsize : (float, float), optional
+            Width and height of the figure(s). The default is (20,20).
 
         Returns
         -------
@@ -2817,7 +2850,7 @@ class NetworkInference(Clustering):
             sns.set_style("white")
 
             # Plot the graph:
-            plt.figure(figsize=(20, 20))
+            plt.figure(figsize=figsize)
             theta = np.linspace(0, 1, nb_blocks + 1)[:-1] * 2 * np.pi
             theta = theta.astype(np.float32)
             pos = np.column_stack([np.cos(theta), np.sin(theta),
@@ -2863,7 +2896,7 @@ class NetworkInference(Clustering):
             sns.set_style("white")
 
             # Plot the graph:
-            plt.figure(figsize=(20, 20))
+            plt.figure(figsize=figsize)
             theta = np.linspace(0, 1, nb_blocks + 1)[:-1] * 2 * np.pi
             theta = theta.astype(np.float32)
             pos = np.column_stack([np.cos(theta), np.sin(theta),
