@@ -16,4 +16,5 @@ Main script of the second series of simulation studies focusing on the effect of
 - ### scanofc_tutorial.ipynb
 A Jupyter notebook demonstrating how to use ScanOFC on two real datasets.
 
-
+- ### scanofc_suppl_functions.py
+Supplementary functions used in the tutorial.
