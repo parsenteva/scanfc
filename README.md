@@ -13,3 +13,7 @@ Main script of the first series of simulation studies focusing on the choice of 
 - ### simulation_study_2.py
 Main script of the second series of simulation studies focusing on the effect of alignment, and two clustering alternatives: stochastic block model inference and clustering of the coordinates of the UMAP projection of the distance matrix.
 
+- ### scanofc_tutorial.ipynb
+A Jupyter notebook demonstrating how to use ScanOFC on two real datasets.
+
+
