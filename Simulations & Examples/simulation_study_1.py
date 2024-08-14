@@ -7,7 +7,7 @@ import itertools
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-from scanofc import Clustering
+from scanfc.clustering import FoldChanges, Clustering
 from sklearn.metrics.cluster import v_measure_score, adjusted_rand_score
 mpl.style.use('seaborn-v0_8')
 mpl.rcParams['font.family'] = 'serif'
@@ -193,14 +193,12 @@ def perform_simulation_study(k, sim_clusters, sim_means, sim_cov, time_points,
         repetition and each approach.
 
     """
-    cl_kmed_sim = Clustering(means=sim_means, cov=sim_cov,
-                             time_points=time_points, dist='d2hat',
+    sim_fc  = FoldChanges(means=sim_means, cov=sim_cov, time_points=time_points)
+    cl_kmed_sim = Clustering(fold_changes=sim_fc, dist='d2hat',
                              random_gen=random_gen)
-    cl_wass_sim = Clustering(means=sim_means, cov=sim_cov,
-                               time_points=time_points, dist='wasserstein',
-                               random_gen=random_gen)
-    cl_hell_sim = Clustering(means=sim_means, cov=sim_cov,
-                             time_points=time_points, dist='hellinger',
+    cl_wass_sim = Clustering(fold_changes=sim_fc, dist='wasserstein',
+                             random_gen=random_gen)
+    cl_hell_sim = Clustering(fold_changes=sim_fc, dist='hellinger',
                              random_gen=random_gen)
 
     sim_results_ars = np.zeros((nb_sim_rep, 6))
