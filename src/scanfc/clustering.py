@@ -746,6 +746,8 @@ class Clustering():
             if optimal_warp_mat is not None:
                 self.time_warp = True
                 self.optimal_warp_mat = optimal_warp_mat
+            else:
+                self.time_warp = False
         else:
             assert_str = "Either 'dist_mat' or a 'fold_changes' has to be non-None."
             assert self.fold_changes is not None, assert_str
