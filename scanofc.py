@@ -10,8 +10,8 @@ import warnings
 import numpy as np
 from scipy import sparse
 from scipy.cluster.hierarchy import dendrogram
-import matplotlib as mpl
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 from matplotlib import cm
 from matplotlib.lines import Line2D
 import pandas as pd
@@ -22,8 +22,6 @@ import umap
 import seaborn as sns
 from sparsebm import SBM
 import networkx as nx
-mpl.style.use('seaborn')
-mpl.rcParams['font.family'] = 'serif'
 
 
 class FoldChanges():
@@ -1277,7 +1275,7 @@ class Clustering(FoldChanges):
                 i += 1
             return clusters, bary_means, bary_cov, total_cost
         if method == 'hierarchical':
-            h_clustering = AgglomerativeClustering(n_clusters=k, affinity='precomputed',
+            h_clustering = AgglomerativeClustering(n_clusters=k, metric='precomputed',
                                                    linkage='complete')
             clusters = h_clustering.fit_predict(self.dist_mat)
             centroids = self.hierarchical_centroids(k, clusters)
@@ -1464,6 +1462,7 @@ class Clustering(FoldChanges):
                         all_warps[str(j)] = self.optimal_warp_mat[np.arange(0, self.nb_var),
                                                                   corresp_centr]
                 if disp_plot:
+                    sns.set_theme(font="serif")
                     if silhouette:
                         fig = plt.figure(figsize=(12, 5))
                         axs = fig.subplots(1, 2)
@@ -1490,7 +1489,6 @@ class Clustering(FoldChanges):
                             axs[1].errorbar(k, mean_best_silhouette, std_best_silhouette,
                                             fmt='None', linestyle='', ecolor='grey',
                                             capsize=2.5, capthick=2, alpha=0.4)
-                            print(mean_best_silhouette)
                             axs[1].title.set_text(
                                 f'Silhouette score (mean  & std of {nb_best/nb_rep*100}% best results)')
                     else:
@@ -1579,6 +1577,7 @@ class Clustering(FoldChanges):
                         mean_best_costs[it] = np.mean(best_costs)
                         std_best_costs[it] = np.std(best_costs)
                 if disp_plot is True:
+                    sns.set_theme(font="serif")
                     if silhouette:
                         fig, axs = plt.subplots(1, 2, figsize=(12, 5))
                         if nb_best <= 1:
@@ -1657,7 +1656,7 @@ class Clustering(FoldChanges):
                 if method == 'hierarchical' and disp_plot is True:
                     model = AgglomerativeClustering(distance_threshold=0,
                                                     n_clusters=None,
-                                                    affinity='precomputed',
+                                                    metric='precomputed',
                                                     linkage='complete')
                     model = model.fit(self.dist_mat)
                     plt.figure(figsize=(10, 3))
@@ -1729,6 +1728,7 @@ class Clustering(FoldChanges):
 
         """
         sns.set_style("darkgrid")
+        sns.set_theme(font="serif")
         # If dictionaries are given, extract the elements corresponding to
         # the clustering with k clusters:
         if isinstance(clusters, dict):
@@ -2540,7 +2540,8 @@ class NetworkInference(Clustering):
                     print(f'{g} is missing')
         edge_colors = nx.get_edge_attributes(fc_graph, 'color').values()
         edge_widths = nx.get_edge_attributes(fc_graph, 'weight').values()
-
+        
+        sns.set_style("white")
         plt.figure(figsize=figsize)
         nx.draw_networkx(fc_graph, fc_positions, with_labels=True, 
                          width=list(edge_widths), node_color=graph_carac['color'], 
@@ -2596,6 +2597,7 @@ class NetworkInference(Clustering):
 
         mpl.rcParams['lines.linewidth'] = 3
         sns.set_style("darkgrid")
+        sns.set_theme(font="serif")
         if figsize is None:
             figsize = (10, nb_blocks * 6)
         fig, axs = plt.subplots(nb_blocks + 1, 1,
@@ -2706,7 +2708,7 @@ class NetworkInference(Clustering):
 
         if plot:
             mpl.style.use('seaborn')
-            mpl.rcParams['font.family'] = 'serif'
+            sns.set_theme(font="serif")
             fig, ax = plt.subplots(figsize=figsize)
             cmap = cm.get_cmap('gist_rainbow')
             curve_colors = cmap(np.linspace(0, 1, len(path_e1_to_e2)))
@@ -2971,7 +2973,7 @@ class NetworkInference(Clustering):
 
         # Degree analysis (code from https://networkx.org/documentation/stable/auto_examples/drawing/plot_degree.html):
         mpl.style.use('seaborn')
-        mpl.rcParams['font.family'] = 'serif'
+        sns.set_theme(font="serif")
 
         degree_sequence = sorted((d for n, d in graph.degree()), reverse=True)
         top_degree = pd.DataFrame(graph.degree()).set_index(
