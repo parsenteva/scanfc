@@ -6,8 +6,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "scanfc" 
 version = "1.0.0"
-description = "ScanFC: Statistical framework for Clustering with Alignment and
-    Network inference of Fold Changes"
+description = "Statistical framework for Clustering with Alignment and Network inference of Fold Changes"
 readme = "README.md"
 requires-python = ">=3.8"
 license = {file = "LICENSE.txt"}
