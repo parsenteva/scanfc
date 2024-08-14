@@ -741,6 +741,8 @@ class Clustering():
             self.nb_var = self.dist_mat.shape[0]
             self.index_pairs = np.array(
                 list(itertools.combinations(range(self.nb_var), 2)))
+            self.distances = self.dist_mat[self.index_pairs[:, 0],
+                                           self.index_pairs[:, 1]]
             if optimal_warp_mat is not None:
                 self.time_warp = True
                 self.optimal_warp_mat = optimal_warp_mat
