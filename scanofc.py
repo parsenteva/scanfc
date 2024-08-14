@@ -1,6 +1,6 @@
 """
-ScanOFC : Statistical framework for Clustering with Alignment and
-    Network inference of Omic Fold Changes.
+ScanFC : Statistical framework for Clustering with Alignment and
+    Network inference of Fold Changes.
 
 @author: Polina Arsenteva
 
@@ -8,20 +8,19 @@ ScanOFC : Statistical framework for Clustering with Alignment and
 import itertools
 import warnings
 import numpy as np
-from scipy import sparse
 from scipy.cluster.hierarchy import dendrogram
-import matplotlib.pyplot as plt
 import matplotlib as mpl
+import matplotlib.pyplot as plt
 from matplotlib import cm
 from matplotlib.lines import Line2D
-import pandas as pd
-from sklearn.datasets import make_spd_matrix as spd
 from sklearn.cluster import AgglomerativeClustering, KMeans
 from sklearn.metrics import silhouette_score
-import umap
+mpl.rcParams['font.family'] = 'serif'
 import seaborn as sns
-from sparsebm import SBM
-import networkx as nx
+for style in plt.style.available:
+    if 'seaborn' in style:
+        mpl.style.use(style)
+        break
 
 
 class FoldChanges():
@@ -581,8 +580,7 @@ class FoldChanges():
         optimal_warp_mat[tuple(index_pairs[:, (1, 0)].T)] = -optimal_warp
         return warped_dist_mat, optimal_warp_mat.astype(int)
 
-
-class Clustering(FoldChanges):
+class Clustering():
     """
     A class containing tools for clustering fold changes, inherits from
     FoldChanges class.
@@ -679,12 +677,10 @@ class Clustering(FoldChanges):
         centroids) fold changes.
 
     """
-    __doc__ += 'Inherited from FoldChanges: \n ' + FoldChanges.__doc__
 
-    def __init__(self, data=None, means=None, cov=None, var_names=None,
-                 time_points=None, dist='d2hat', time_warp=False,
-                 max_warp_step=1, sign_pen=False, pen_param=1,
-                 random_gen=None):
+    def __init__(self, dist_mat=None, optimal_warp_mat=None, fold_changes=None, 
+                 dist='d2hat', time_warp=False, max_warp_step=1, sign_pen=False,
+                 pen_param=1, random_gen=None):
         """
         Parameters
         ----------
@@ -739,49 +735,58 @@ class Clustering(FoldChanges):
             random number generator.
 
         """
-        super().__init__(data=data, means=means, cov=cov,
-                         var_names=var_names, time_points=time_points)
-        self.dist = dist
-        self.time_warp = time_warp
-        if sign_pen:
-            self.sign_pen = sign_pen
-            self.pen_param = pen_param
-        # With alignment:
-        if time_warp:
-            assert max_warp_step >= 0
-            self.max_warp_step = max_warp_step
-            if self.means is not None:
-                (self.index_pairs,
-                 warped_distances) = (self.compute_warped_distance_pairs(max_warp_step=max_warp_step,
-                                                                         sign_pen=sign_pen,
-                                                                         pen_param=pen_param))
-                self.distances = np.min(warped_distances, axis=0)
-        # Without alignment:
+        self.fold_changes = fold_changes
+        if dist_mat is not None:
+            self.dist_mat = dist_mat
+            self.nb_var = self.dist_mat.shape[0]
+            self.index_pairs = np.array(
+                list(itertools.combinations(range(self.nb_var), 2)))
+            if optimal_warp_mat is not None:
+                self.time_warp = True
+                self.optimal_warp_mat = optimal_warp_mat
         else:
-            if self.means is not None:
-                (self.index_pairs,
-                 self.distances) = self.compute_distance_pairs(dist=self.dist,
-                                                               sign_pen=sign_pen,
-                                                               pen_param=pen_param)
-        if self.means is not None:
-            if self.dist in ('d2hat', 'hellinger'):
-                if time_warp:
-                    (self.dist_mat,
-                     self.optimal_warp_mat) = self.compute_warped_dist_mat(self.index_pairs,
-                                                                           warped_distances)
-                else:
-                    self.dist_mat = self.compute_dist_mat(self.index_pairs,
-                                                          self.distances)
-            if self.dist == 'wasserstein':
-                fc_var = np.diagonal(self.cov, axis1=1, axis2=2)
-                id_tensor = (np.repeat(np.identity(self.nb_time_pts),
-                                       self.nb_var, axis=1)
-                             .reshape((self.nb_time_pts, self.nb_time_pts,
-                                       self.nb_var)))
-                M1 = np.einsum('ijk,ik->ijk', id_tensor, fc_var)
-                self.dist_mat = self.compute_cross_distances(self.means, M1)[0]
-        if self.means is None:
-            self.dist_mat = None
+            assert_str = "Either 'dist_mat' or a 'fold_changes' has to be non-None."
+            assert self.fold_changes is not None, assert_str
+            self.nb_var = self.fold_changes.nb_var
+            self.dist = dist
+            self.time_warp = time_warp
+            if sign_pen:
+                self.sign_pen = sign_pen
+                self.pen_param = pen_param
+            # With alignment:
+            if time_warp:
+                assert max_warp_step >= 0
+                self.max_warp_step = max_warp_step
+                if self.fold_changes.means is not None:
+                    (self.index_pairs,
+                     warped_distances) = (self.compute_warped_distance_pairs(max_warp_step=max_warp_step,
+                                                                             sign_pen=sign_pen,
+                                                                             pen_param=pen_param))
+                    self.distances = np.min(warped_distances, axis=0)
+            # Without alignment:
+            else:
+                if self.fold_changes.means is not None:
+                    (self.index_pairs,
+                     self.distances) = self.compute_distance_pairs(dist=self.dist,
+                                                                   sign_pen=sign_pen,
+                                                                   pen_param=pen_param)
+            if self.fold_changes.means is not None:
+                if self.dist in ('d2hat', 'hellinger'):
+                    if time_warp:
+                        (self.dist_mat,
+                         self.optimal_warp_mat) = self.compute_warped_dist_mat(self.index_pairs,
+                                                                               warped_distances)
+                    else:
+                        self.dist_mat = self.compute_dist_mat(self.index_pairs,
+                                                              self.distances)
+                if self.dist == 'wasserstein':
+                    fc_var = np.diagonal(self.fold_changes.cov, axis1=1, axis2=2)
+                    id_tensor = (np.repeat(np.identity(self.fold_changes.nb_time_pts),
+                                           self.nb_var, axis=1)
+                                 .reshape((self.fold_changes.nb_time_pts, self.fold_changes.nb_time_pts,
+                                           self.nb_var)))
+                    M1 = np.einsum('ijk,ik->ijk', id_tensor, fc_var)
+                    self.dist_mat = self.compute_cross_distances(self.fold_changes.means, M1)[0]
         if random_gen:
             self.random_gen = random_gen
         else:
@@ -925,106 +930,6 @@ class Clustering(FoldChanges):
             centroids = centroids_int.copy()
             centroids[np.argmin(new_dist)] = new_centroids[np.argmin(new_dist)]
         return centroids
-
-    @staticmethod
-    def _minus_sqrt_mat(m):
-        """
-        Computes a -0.5 power of a matrix by diagonalization, used in
-        'compute_barycenter' to calculate one of the terms of the fixed point
-        equation in order to find an approximation of the Wasserstein
-        barycenter's covariance matrix.
-
-        Parameters
-        ----------
-        m : ndarray
-            2D array, in 'compute_barycenter': barycenter covariance matrix of
-            shape (nb_time_pts, nb_time_pts).
-
-        Returns
-        -------
-        ndarray
-            -0.5 power of m.
-
-        """
-        eig_val, eig_vec = np.linalg.eigh(m)
-        return eig_vec @ np.diag(np.power(eig_val, -0.5)) @ (eig_vec.T)
-
-    def compute_barycenter(self, k, clusters, cov0, precision=1e-5):
-        """
-        Calculates barycenters with respect to the Wasserstein distance for
-        k clusters by solving a fixed point problem iteratively until the
-        stopping criterion is satisfied.
-
-        Parameters
-        ----------
-        k : int
-            Number of clusters.
-        clusters : ndarray
-            1D array of length equal to 'nb_var' with values of type 'int'
-            between 0 and k-1 indicating which cluster every fold change
-            belongs to.
-        cov0 : ndarray
-            2D array of shape (nb_time_pts, nb_time_pts), a symmetric positive
-            definite matrix that initializes the barycenters' covariance
-            matrices.
-        precision : float, optional
-            Stopping criterion, the fixed point equation iterations stop when
-            the difference between the old and the new total costs for the
-            considered cluster becomes smaller or equal to this value.
-            The default is 1e-5.
-
-        Returns
-        -------
-        bary_means : ndarray
-            2D array of shape (nb_time_pts, k) representing final barycenter
-            means for all clusters.
-        bary_cov : ndarray
-            3D array of shape (nb_time_pts, nb_time_pts, k) representing
-            final barycenter covariance matrices for all clusters.
-        all_costs : ndarray
-            1D array of length k containing final total costs per cluster.
-
-        """
-        bary_means = np.zeros((self.nb_time_pts, k))
-        bary_cov = np.zeros((self.nb_time_pts, self.nb_time_pts, k))
-        all_costs = np.zeros((k))
-        for i in range(k):
-            cluster_i = np.squeeze(np.argwhere(clusters == i), axis=1)
-            # Barycenter means are calculated with a simple average:
-            bary_means[:, i] = np.mean(self.means[:, cluster_i], axis=1)
-            bary_m = np.reshape(bary_means[:, i], (self.nb_time_pts, 1))
-            bary_c = np.copy(cov0)
-            dist_cluster_i = np.zeros((cluster_i.size))
-            it = 0
-            delta_cost = np.inf
-            old_cost = np.inf
-
-            # Fixed point equation iteration to find the optimal barycenter
-            # covariance matrix (approximation):
-            while delta_cost > precision:
-                #print('iter ', it)
-                if it > 100:
-                    break
-                bary_c = np.reshape(bary_c, (self.nb_time_pts,
-                                             self.nb_time_pts, 1))
-                (dist_cluster_i,
-                 K) = self.compute_cross_distances(bary_m,
-                                                   bary_c,
-                                                   cluster=cluster_i)
-                K_mean = np.mean(K, axis=(0, 1))
-                new_cost = np.sum(dist_cluster_i)
-                delta_cost = np.abs(old_cost - new_cost)
-                old_cost = new_cost
-                bary_c_power = Clustering._minus_sqrt_mat(np.squeeze(bary_c))
-                try:
-                    bary_c = (bary_c_power @ np.linalg.matrix_power(K_mean, 2)
-                              @ bary_c_power)
-                except np.linalg.LinAlgError:
-                    break
-                it += 1
-            bary_cov[:, :, i] = np.copy(bary_c)
-            all_costs[i] = new_cost
-        return bary_means, bary_cov, all_costs
 
     def hierarchical_centroids(self, k, clusters):
         """
@@ -1247,33 +1152,6 @@ class Clustering(FoldChanges):
                     total_cost = new_cost
                 i += 1
             return clusters, centroids, total_cost
-        if method == 'wass k-means':
-            total_cost = np.inf
-            centroids_int = centroids.astype(int)
-            bary_means = self.means[:, centroids_int]
-            bary_var = self.cov[:, centroids_int, centroids_int]
-            id_tensor = (np.repeat(np.identity(self.nb_time_pts), k, axis=1).
-                         reshape((self.nb_time_pts, self.nb_time_pts, k)))
-            bary_cov = np.einsum('ijk,ik->ijk', id_tensor, bary_var)
-            while not flag:
-                cov0 = spd(self.nb_time_pts)
-                wass_dist_mat = self.compute_cross_distances(bary_means,
-                                                             bary_cov)[0]
-                clusters = self.assign_clusters(centroids, method=method,
-                                                wass_dist_mat=wass_dist_mat)
-                (new_bary_means, new_bary_cov,
-                 new_costs) = self.compute_barycenter(k, clusters, cov0)
-                new_total_cost = np.sum(new_costs)
-                flag = new_total_cost >= total_cost
-                if not flag and (new_total_cost >= 0):
-                    bary_means = np.copy(new_bary_means)
-                    bary_cov = np.copy(new_bary_cov)
-                    total_cost = new_total_cost
-                if verbose > 0:
-                    print('Iteration ', i)
-                    print('Total cost: ', total_cost)
-                i += 1
-            return clusters, bary_means, bary_cov, total_cost
         if method == 'hierarchical':
             h_clustering = AgglomerativeClustering(n_clusters=k, metric='precomputed',
                                                    linkage='complete')
@@ -1282,6 +1160,7 @@ class Clustering(FoldChanges):
             return clusters, centroids
         if method == 'umap':
             warnings.filterwarnings('ignore', '.*precomputed metric.*')
+            import umap
             fit_umap = umap.UMAP(metric='precomputed',
                                  random_state=self.random_gen).fit_transform(self.dist_mat)
             sp_cl = KMeans(n_clusters=k, n_init=nb_rep_umap,
@@ -1462,7 +1341,6 @@ class Clustering(FoldChanges):
                         all_warps[str(j)] = self.optimal_warp_mat[np.arange(0, self.nb_var),
                                                                   corresp_centr]
                 if disp_plot:
-                    sns.set_theme(font="serif")
                     if silhouette:
                         fig = plt.figure(figsize=(12, 5))
                         axs = fig.subplots(1, 2)
@@ -1489,6 +1367,7 @@ class Clustering(FoldChanges):
                             axs[1].errorbar(k, mean_best_silhouette, std_best_silhouette,
                                             fmt='None', linestyle='', ecolor='grey',
                                             capsize=2.5, capthick=2, alpha=0.4)
+                            print(mean_best_silhouette)
                             axs[1].title.set_text(
                                 f'Silhouette score (mean  & std of {nb_best/nb_rep*100}% best results)')
                     else:
@@ -1509,118 +1388,6 @@ class Clustering(FoldChanges):
                 if self.time_warp:
                     return all_clusters, all_centroids, all_warps, all_costs
                 all_clusters, all_centroids, all_costs
-        if method == 'wass k-means':
-            if np.size(k) == 1:
-                total_cost = np.inf
-                for i in range(nb_rep):
-                    if i % 50 == 0 and verbose > 0:
-                        print('rep ', i)
-                    (clusters_i,
-                     bary_means_i,
-                     bary_cov_i,
-                     total_cost_i) = self.choose_k_clusters(k, method=method,
-                                                            verbose=verbose)
-                    if round(total_cost_i, 6) < round(total_cost, 6):
-                        clusters = np.copy(clusters_i)
-                        bary_means = np.copy(bary_means_i)
-                        bary_cov = np.copy(bary_cov_i)
-                        total_cost = total_cost_i
-                return clusters, bary_means, bary_cov, total_cost
-            else:
-                costs_array = np.zeros((len(k)))
-                sil_score_array = np.zeros((len(k)))
-                all_costs = {}
-                all_clusters = {}
-                all_bary_means = {}
-                all_bary_cov = {}
-                if nb_best > 1:
-                    mean_best_costs = np.zeros((len(k)))
-                    std_best_costs = np.zeros((len(k)))
-                    mean_best_silhouette = np.zeros((len(k)))
-                    std_best_silhouette = np.zeros((len(k)))
-                for it, j in enumerate(k):
-                    if verbose > 0:
-                        print('Cluster ', j+1)
-                    total_cost = np.inf
-                    if nb_best > 1:
-                        best_costs = np.ones((nb_best))*np.inf
-                        best_silhouette = np.ones((nb_best))*np.inf
-                    for i in range(nb_rep):
-                        (clusters_i,
-                         bary_means_i,
-                         bary_cov_i,
-                         total_cost_i) = self.choose_k_clusters(j, method=method,
-                                                                verbose=verbose)
-                        if total_cost_i < total_cost:
-                            clusters = np.copy(clusters_i)
-                            bary_means = np.copy(bary_means_i)
-                            bary_cov = np.copy(bary_cov_i)
-                            total_cost = total_cost_i
-                        if nb_best > 1:
-                            if total_cost_i < max(best_costs):
-                                best_costs[np.argmax(
-                                    best_costs)] = total_cost_i
-                                if silhouette:
-                                    best_silhouette[np.argmax(best_costs)] = silhouette_score(self.dist_mat,
-                                                                                              clusters_i,
-                                                                                              metric="precomputed")
-                    costs_array[it] = total_cost
-                    if silhouette:
-                        sil_score_array[it] = silhouette_score(self.dist_mat,
-                                                               clusters,
-                                                               metric="precomputed")
-                    all_costs[str(j)] = total_cost
-                    all_clusters[str(j)] = clusters
-                    all_bary_means[str(j)] = bary_means
-                    all_bary_cov[str(j)] = bary_cov
-                    if nb_best > 1:
-                        mean_best_costs[it] = np.mean(best_costs)
-                        std_best_costs[it] = np.std(best_costs)
-                if disp_plot is True:
-                    sns.set_theme(font="serif")
-                    if silhouette:
-                        fig, axs = plt.subplots(1, 2, figsize=(12, 5))
-                        if nb_best <= 1:
-                            axs[0].plot(k, costs_array, 'b')
-                            axs[0].title.set_text(
-                                'Total clustering costs (best result)')
-                            axs[0].xlabel('Num. of clusters')
-                            axs[1].plot(k, silhouette_score_array, 'g')
-                            axs[1].title.set_text(
-                                'Silhouette score (best result)')
-                            axs[1].xlabel('Num. of clusters')
-                        else:
-                            axs[0].plot(k, mean_best_costs, 'b')
-                            axs[0].xlabel('Num. of clusters')
-                            axs[0].errorbar(k, mean_best_costs, std_best_costs,
-                                            fmt='None', linestyle='', ecolor='grey',
-                                            capsize=2.5, capthick=2, alpha=0.4)
-                            axs[0].title.set_text(
-                                f'Total clustering costs (mean  & std of {nb_best/nb_rep*100}% best results)')
-                            axs[1].plot(k, mean_best_silhouette, 'g')
-                            axs[1].xlabel('Num. of clusters')
-                            axs[1].errorbar(k, mean_best_silhouette, std_best_silhouette,
-                                            fmt='None', linestyle='', ecolor='grey',
-                                            capsize=2.5, capthick=2, alpha=0.4)
-                            print(mean_best_silhouette)
-                            axs[1].title.set_text(
-                                f'Silhouette score (mean  & std of {nb_best/nb_rep*100}% best results)')
-                    else:
-                        fig = plt.figure(figsize=(12, 5))
-                        if nb_best <= 1:
-                            plt.plot(k, costs_array, 'b')
-                            plt.title('Total clustering costs (best result)')
-                            plt.xlabel('Num. of clusters')
-                        else:
-                            plt.plot(k, mean_best_costs, 'b')
-                            plt.xlabel('Num. of clusters')
-                            plt.errorbar(k, mean_best_costs, std_best_costs,
-                                         fmt='None', linestyle='', ecolor='grey',
-                                         capsize=2.5, capthick=2, alpha=0.4)
-                            plt.title(
-                                f'Total clustering costs (mean  & std of {nb_best/nb_rep*100}% best results)')
-                    plt.show()
-                return all_clusters, all_bary_means, all_bary_cov, all_costs
         if method == 'hierarchical' or method == 'umap':
             if np.size(k) == 1:
                 (clusters,
@@ -1727,8 +1494,10 @@ class Clustering(FoldChanges):
         None.
 
         """
+        assert_str = "Define 'fold_changes' as a FoldChanges instance to use this function."
+        assert self.fold_changes is not None, assert_str
+        
         sns.set_style("darkgrid")
-        sns.set_theme(font="serif")
         # If dictionaries are given, extract the elements corresponding to
         # the clustering with k clusters:
         if isinstance(clusters, dict):
@@ -1739,10 +1508,10 @@ class Clustering(FoldChanges):
             centroids_k = centroids.copy()
         if nb_rows is None:
             nb_rows = int(np.ceil(k/nb_cols))
-        if self.time_points is not None:
-            time_points = self.time_points
+        if self.fold_changes.time_points is not None:
+            time_points = self.fold_changes.time_points
         else:
-            time_points = range(self.nb_time_pts)
+            time_points = range(self.fold_changes.nb_time_pts)
         if warps is not None:
             if isinstance(warps, dict):
                 warps_k = warps[str(k)]
@@ -1770,18 +1539,18 @@ class Clustering(FoldChanges):
                     warp_type = warps_k[cluster_j[f]]
                     c = warp_colors[np.max(warps_k) + warp_type]
                     ax_j[col_to_plot].plot(time_points,
-                                           self.means[:, cluster_j[f]],
+                                           self.fold_changes.means[:, cluster_j[f]],
                                            '-.', color=c)
                 else:
                     ax_j[col_to_plot].plot(time_points,
-                                           self.means[:, cluster_j[f]],
+                                           self.fold_changes.means[:, cluster_j[f]],
                                            '-.', color='grey')
             if centroid_type == 'medoid':  # the centroid is colored in red and thick
-                ax_j[col_to_plot].plot(time_points, self.means[:, centroids_k[j]],
+                ax_j[col_to_plot].plot(time_points, self.fold_changes.means[:, centroids_k[j]],
                                        '-', color='red', linewidth=2,
                                        label='Centroid')
-                if self.var_names is not None:
-                    cluster_title = f'Centroid: {self.var_names[centroids_k[j]]}, {len(cluster_j)} members'
+                if self.fold_changes.var_names is not None:
+                    cluster_title = f'Centroid: {self.fold_changes.var_names[centroids_k[j]]}, {len(cluster_j)} members'
                     ax_j[col_to_plot].set_title(cluster_title, color='red')
                 else:
                     cluster_title = f'{len(cluster_j)} members'
@@ -1836,18 +1605,18 @@ class Clustering(FoldChanges):
                 for f in range(len(cluster_j)):
                     warp_type = warps_k[cluster_j[f]]
                     warped_range = np.asarray(range(-min(0, warp_type),
-                                                    self.nb_time_pts-max(0, warp_type)))
+                                                    self.fold_changes.nb_time_pts-max(0, warp_type)))
                     plot_range = np.asarray(range(max(0, warp_type),
-                                                  self.nb_time_pts+min(0, warp_type)))
+                                                  self.fold_changes.nb_time_pts+min(0, warp_type)))
                     c = warp_colors[np.max(warps_k) + warp_type]
                     ax_j[col_to_plot].plot(time_points[plot_range],
-                                           self.means[warped_range,
+                                           self.fold_changes.means[warped_range,
                                                       cluster_j[f]],
                                            '-.', color=c)
-                ax_j[col_to_plot].plot(time_points, self.means[:, centroids_k[j]],
+                ax_j[col_to_plot].plot(time_points, self.fold_changes.means[:, centroids_k[j]],
                                        '-', color='red', linewidth=2, label='Centroid')
-                if self.var_names is not None:
-                    cluster_title = f'Centroid: {self.var_names[centroids_k[j]]}, {len(cluster_j)} members'
+                if self.fold_changes.var_names is not None:
+                    cluster_title = f'Centroid: {self.fold_changes.var_names[centroids_k[j]]}, {len(cluster_j)} members'
                     ax_j[col_to_plot].set_title(cluster_title, color='red')
                 # Adding a legend specifying warp types
                 lines = [Line2D([0], [0], color=c, linewidth=1,
@@ -1876,1212 +1645,3 @@ class Clustering(FoldChanges):
             plt.tight_layout()
             plt.show()
 
-
-class NetworkInference(Clustering):
-    """
-    A class containing tools for inference of a network of fold changes from
-    a dataset, inherits from Clustering and FoldChanges classes.
-
-    Attributes
-    ----------
-    sparsity : float
-        Sparsity of the network determining the cutoff when defining the
-        binary adjacency matrix adj_mat based on the weighted one.
-
-    directed : bool
-        If True, the network is directed, and undirected if False.
-
-    adj_mat : ndarray
-        2D array of shape (nb_var, nb_var) indicating whether the fold changes
-        are connected (i.e. similar enough) or not. If the network is
-        undirected, then has 0 for connected fold changes and 1 for not
-        connected (symmetric). A pair of fold changes is considered to be
-        connected if their distance-based similarity is bigger then the cutoff
-        value, which is equal to the empirical quantile of the similarity
-        matrix corresponding to the chosen sparsity. If the network is directed,
-        the matrix stops being symmetric, and the edges that exist according
-        to the undirected case procedure become either 1 or 0 based on the
-        corresponding warp: 1 for the edges with the corresponding warps being
-        positive (predictive) or 0 (simultaneous), and 0 for
-        those with negative warps (target).
-
-    Methods
-    -------
-    infer_sbm(nb_blocks, clusters, n_init=10, n_iter_early_stop=50,
-              random=False, verbosity=0, pi_weight=0.8, random_gen=None)
-        Performs stochastic block model inference for the fold changes' network
-        based on clustering (i.e. on the constrained parameter space).
-    compute_network(clusters, centroids, draw_path=False, path=None,
-                    figtitle='Fold changes network', figsize=(25,25),
-                    obj_scale=1, graph_type='full', adj_mat_2=None,
-                    shade_intersect=False)
-        Creates a NetworkX object representing the fold changes' network and
-        displays it in a block form arising from clusters. The network is
-        represented with a graph where nodes are the considered entities and
-        the edges are connections between them (i.e. ones in the adjacency
-        matrix). Members of every block are grouped around their centroid
-        (its node is bigger then other nodes), and have a color different
-        from other blocks.
-    plot_most_connected_members(clusters, centroids=None, warps=None,
-                                nb_components=5)
-        Identifies the most connected components within each cluster, and
-        displays a plot of the corresponding fold changes' means. If warps are
-        given, then also displays the information on the warping groups of
-        the components.
-    compute_entity_path(path_e1_to_e2=None, entity_1=None, entity_2=None,
-                        plot=True)
-        If entity_1 and entity_2 are given (and path_e1_to_e2 is not),
-        computes a shortest path from entity_1 to entity_2, and plots a figure
-        with the means of the fold changes in the path. If path_e1_to_e2 is
-        given, then produces a plot of the means of the fold changes'
-        in path_e1_to_e2.
-    draw_mesoscopic(clusters, centroids, obj_scale=1, node_label_size=30)
-        Displays a mesoscopic representation of the fold changes network, i.e.
-        a graph with k=len(centroids) nodes representing clusters, each labeled
-        by the name of the corresponding centroid, with sizes proportional to
-        respective cluster sizes. The edges represent connections between
-        clusters, their thickness is proportional to the respective number of
-        connections. If the network is directed, then arrow head sizes are
-        proportional to the percentage of connections of the corresponding
-        predictive type among all connections between the considered clusters.
-        In the latter case edges are annotated with the distribution among the
-        connection types (i.e. warps) in the following format: for an edge
-        between A and B, the annotation is of the form "% of predictive
-        connections from B to A - total number of connections between
-        A and B - % of predictive connections from A to B". In the case of
-        undirected graph, the edges are annotated with the corresponding
-        numbers of connections only.
-    graph_analysis(clusters, nb_top=10)
-        Performs a series of graph analyses of the fold changes network, in
-        particular: identifies among the entities nb_top top hits, authorities,
-        nodes with respect to pagerank, degree and betweenness centrality. It
-        also plots a figure displaying degree distribution of the nodes.
-    pathway_search(clusters)
-        Identifies all shortest paths between entities in the network of length
-        3 and bigger, and presents them along with their scores with respect to
-        criteria potentially relevant for hypothesis generation.
-
-    """
-    __doc__ += 'Inherited from Clustering: \n ' + Clustering.__doc__
-
-    def __init__(self, data=None, means=None, cov=None, var_names=None,
-                 time_points=None, dist='d2hat', time_warp=False,
-                 max_warp_step=1, sign_pen=False, pen_param=1, random_gen=None,
-                 sparsity=0.75, directed=False, adj_mat=None):
-        """
-        Parameters
-        ----------
-        data : ndarray or None
-            If not None, 4D array with the dimensions corresponding to:
-            1) nb of time points, 2) two experimental conditions
-            (dim 0: control, dim 1: case)), 3) replicates, 4) nb of entities.
-            If None (by default), then the fold changes are constructed based
-            on 'means' and 'cov'. Either 'data' or 'means' and 'cov' have to be
-            non-None, with 'data' having priority for the fold changes
-            construction.
-        means : ndarray or None
-            If not None, 2D array of shape (nb_time_pts, nb_var)
-            containing data with `float` type, representing fold changes' means
-            for each entity and each time point. If 'data' is None, used to
-            construct fold changes. Either 'data' or 'means' and 'cov' have to
-            be non-None.
-        cov : ndarray or None
-            If not None, 3D array of shape (nb_time_pts, nb_var, nb_var)
-            containing data with `float` type, representing fold changes'
-            nb_var x nb_var shaped covariance matrices for each time point.
-            Time-wise cross-covariances are assumes to be 0 due to experimental
-            design. In case of Hellinger distance, can also be 4-dimensional
-            (natural form): (nb_time_pts, nb_time_pts, nb_var, nb_var).
-            If 'data' is None, used to construct fold changes. Either 'data' or
-            'means' and 'cov' have to be non-None.
-        var_names : array-like or None
-            1D array-like containing data with `string` type, representing
-            names of the measured entities (ex. genes). The default is None.
-        time_points : array-like or None
-            1D array-like containing data with `float` type, representing time
-            points at which fold changes were measured. The default is None.
-        dist : str
-            Distance chosen for clustering, 'd2hat' by default (L2 distance
-            between random estimators), can also be 'wasserstein'
-            (Wasserstein distance) and 'hellinger' (Hellinger distance).
-        time_warp : bool
-            If True, then the clustering procedure is coupled with the
-            alignment. The default is False.
-        max_warp_step : int
-            If max_warp_step=i>0, then the set of all considered warps is the
-            set of all integers between -i and i.
-        sign_pen : bool
-            If True, then the distance is penalized with sign penalty.
-            The default is False.
-        pen_param : float
-            Parameter determining the weight of sign penalty. The default is 1.
-        random_gen : RandomState instance or None
-            Random number generator, used to reproduce results. If None
-            (default), the generator is the RandomState instance used by
-            `np.random`. If RandomState instance, random_gen is the actual
-            random number generator.
-        sparsity : float, optional
-            Sparsity of the network determining the cutoff when defining the
-            binary adjacency matrix based on the weighted one.
-            The default is 0.75.
-        directed : bool, optional
-            If True, the network is directed, and undirected if False (default).
-        adj_mat : ndarray or None, optional
-            If not None (default), 2D array of shape (nb_var, nb_var)
-            indicating whether the fold changes are connected (i.e. similar
-            enough) or not. If the network is undirected, then has 0 for
-            connected fold changes and 1 for not connected (symmetric).
-            A pair of fold changes is considered to be connected if their
-            distance-based similarity is bigger then the cutoff value, which
-            is equal to the empirical quantile of the similarity matrix
-            corresponding to the chosen sparsity. If the network is directed,
-            the matrix stops being symmetric, and the edges that exist
-            according to the undirected case procedure become either 1 or 0
-            based on the corresponding warp: 1 for the edges with the
-            corresponding warps being positive (predictive) or 0
-            (simultaneous), and 0 for those with negative warps (target).
-            If 'adj_mat' is specified, the adjacency matrix is defined based 
-            its value, otherwise calculated based on the distance matrix and 
-            the optimal distance matrix. NB: in the former case 'optimal_warp_mat'
-            is recalculated to correspond to 'adj_mat', however 'dist_mat'
-            remains the same.
-        Returns
-        -------
-        None.
-
-        """
-        super().__init__(data=data, means=means, cov=cov, var_names=var_names,
-                         time_points=time_points, dist=dist,
-                         time_warp=time_warp, max_warp_step=max_warp_step,
-                         sign_pen=sign_pen, pen_param=pen_param,
-                         random_gen=random_gen)
-        self.sparsity = sparsity
-        self.directed = directed
-        if adj_mat is not None:
-            self.adj_mat = adj_mat
-            if not self.directed:
-                is_sym = np.array_equal(self.adj_mat, self.adj_mat.T)
-                assert is_sym, "Adjacency matrix for an undirected graph has to be symmetric."
-            else:
-                self.optimal_warp_mat[(self.adj_mat == 1) 
-                                      & (self.adj_mat.T == 1)] = 0
-                self.optimal_warp_mat[(self.adj_mat == 1) 
-                                      & (self.adj_mat.T == 0)] = 1
-                self.optimal_warp_mat[(self.adj_mat == 0) 
-                                      & (self.adj_mat.T == 1)] = -1
-        # Calculating adjacency matrix based on the distance matrix:
-        elif self.dist_mat is not None:
-            max_dist = np.max(self.dist_mat)
-            # Normalizing distance to get similarity matrix:
-            simil_mat = (-self.dist_mat+max_dist)/max_dist
-            simil_flat = (-self.distances+max_dist)/max_dist
-            # Matrix binarization through sparsity-based thresholding:
-            sparsity_quantile = np.quantile(simil_flat, sparsity)
-            sparse_simil_array = np.where(simil_mat >= sparsity_quantile, 1, 0)
-            sparse_simil_array[np.diag_indices(self.nb_var)] = 0
-            # If directed, keep the edges with positive warps:
-            if self.directed and self.time_warp:
-                self.adj_mat = np.where(self.optimal_warp_mat < 0, 0,
-                                        sparse_simil_array)
-            else:
-                self.adj_mat = sparse_simil_array.copy()
-
-    def infer_sbm(self, nb_blocks, clusters, n_init=10, n_iter_early_stop=50,
-                  random=False, verbosity=0, pi_weight=0.8, random_gen=None):
-        """
-        Performs stochastic block model inference for the fold changes' network
-        based on clustering (i.e. on the constrained parameter space). This
-        code is based on method 'fit' from class 'SBM' of the package SparseBM
-        (https://github.com/gfrisch/sparsebm).
-
-        Parameters
-        ----------
-        nb_blocks : int
-            Number of blocks (communities/clusters) in the stochastic
-            block model.
-        clusters : ndarray or dictionary
-            If ndarray, 1D array of length nb_var containing integers in range
-            (0, k) indicating clusters to which the fold changes are assigned.
-            If a dictionary, the keys are numbers of clusters considered, and
-            for each such number the value is the latter array.
-        n_init : int, optional
-            Number of initializations. The default is 10.
-        n_iter_early_stop : TYPE, optional
-            Number of VEM iterations. The default is 50.
-        random : bool, optional
-            If True, stochastic block model is initialized on the parameter
-            space defined by the original model. If False (default),
-            stochastic block model is initialized on the constrained parameter
-            space corresponding to base clustering.
-        verbosity : int, optional
-            Degree of verbosity. Scale from 0 (no message displayed) to 3.
-            The default is 0.
-        pi_weight : float, optional
-            Weight parameter controlling the initialization of pi.
-            pi(q,q)~Unif([pi_weight, 1)) and pi(q,q')~Unif([0,1-pi_weight))
-            for q!=q'. The default is 0.8.
-        random_gen : RandomState instance or None, optional
-            Random number generator, used to reproduce results. If None
-            (default), the generator is the RandomState instance used by
-            `np.random`. If RandomState instance, random_gen is the actual
-            random number generator.
-
-        Returns
-        -------
-        successful_sbm : SBM instance or None
-            Successfully trained stochastic block model, or None in case of
-            failure.
-,        sbm_centroids : ndarray or None
-            1D array of length k containing indices in range (0, nb_var) of
-            the fold changes that have been chosen as centroids (calculated
-             after stochastic block model is inferred) if SBM is successfully
-             inferred, otherwise None.
-        comp_cost : float or None
-            Value of the total comparable cost if SBM is successfully inferred,
-            otherwise None.
-
-        """
-        eps = 1e-2 / self.nb_var
-        sbm = SBM(nb_blocks, n_iter_early_stop=n_iter_early_stop,
-                  verbosity=verbosity)
-        sbm._nb_rows = nb_blocks
-        sbm.symmetric = True
-        sbm._check_params()
-        sparse_simil_mat = sparse.csr_matrix(self.adj_mat)
-
-        comp_cost = np.inf
-        counter = 0
-        was_ever_successful = False
-
-        if random_gen is None:
-            random_gen = np.random
-
-        if isinstance(clusters, dict):
-            clusters_k = clusters[str(nb_blocks)]
-        else:
-            clusters_k = clusters.copy()
-        for init in range(n_init):
-            # Case without additional constraints:
-            if random:
-                eps = 1e-2 / self.nb_var
-
-                alpha_init = ((np.ones(nb_blocks) / nb_blocks)
-                              .reshape((nb_blocks, 1)))
-                alpha_init = alpha_init.flatten()
-
-                tau_init = random_gen.uniform(size=(self.nb_var,
-                                                    nb_blocks)) ** 2
-                tau_init /= tau_init.sum(axis=1).reshape(self.nb_var, 1)
-                tau_init[tau_init < eps] = eps
-                tau_init /= (tau_init.sum(axis=1)
-                             .reshape(self.nb_var, 1))  # Re-Normalize.
-                pi_init = random_gen.uniform(2 * sparse_simil_mat.nnz
-                                             / (self.nb_var * self.nb_var) / 10,
-                                             2 * sparse_simil_mat.nnz
-                                             / (self.nb_var * self.nb_var),
-                                             (nb_blocks, nb_blocks))
-                indices_ones = list(self.adj_mat.nonzero())
-
-                # VEM:
-                (success, ll,
-                 pi, alpha, tau) = sbm._fit_single(self.adj_mat, indices_ones,
-                                                   self.nb_var, run_number=1,
-                                                   init_params=(pi_init,
-                                                                alpha_init,
-                                                                tau_init),
-                                                   early_stop=sbm.n_iter_early_stop)
-                if success:
-                    sbm.trained_successfully_ = True
-                    was_ever_successful = True
-                    sbm_clusters = tau.argmax(1)
-                    comp_cost_sbm = self.calculate_comparable_cost(nb_blocks,
-                                                                   sbm_clusters)
-                    if ll > sbm.loglikelihood_:
-                        counter += 1
-                        sbm.loglikelihood_ = ll
-                        comp_cost = comp_cost_sbm
-                        sbm.pi_ = pi
-                        sbm.alpha_ = alpha
-                        sbm.tau_ = tau
-                        sbm_centroids = self.hierarchical_centroids(nb_blocks,
-                                                                    sbm_clusters)
-                        if np.isnan(sbm_centroids).all():
-                            existing_clusters = np.unique(sbm_clusters)
-                            new_nb_blocks = len(existing_clusters)
-                            sbm_centroids = np.repeat(np.nan, nb_blocks)
-                            sbm_centroids[existing_clusters] = self.hierarchical_centroids(new_nb_blocks,
-                                                                                           sbm_clusters)
-                        successful_sbm = sbm.copy()
-            # Case with clustering related constraints:
-            else:
-                alpha_init = np.ones(nb_blocks)/nb_blocks
-                # Initialization of the variational latent variable
-                # distribution parameter tau according to k-medoids clustering:
-                tau_init = np.ones((self.nb_var, nb_blocks)) * eps
-                for i, cl in enumerate(clusters_k):
-                    tau_init[i, cl] = 1 - eps * (nb_blocks-1)
-                # Initialization of the parameter determining edges to
-                # correspond to hard clustering:
-                pi_init = random_gen.uniform(0, 1-pi_weight,
-                                             (nb_blocks, nb_blocks))
-                pi_init[np.diag_indices(nb_blocks)] = random_gen.uniform(pi_weight,
-                                                                         1,
-                                                                         (1, nb_blocks))
-                pi_init[np.triu_indices(nb_blocks, 1)[
-                    ::-1]] = pi_init[np.triu_indices(nb_blocks, 1)]
-
-                indices_ones = list(self.adj_mat.nonzero())
-
-                # VEM:
-                (success, ll,
-                 pi, alpha, tau) = sbm._fit_single(self.adj_mat, indices_ones,
-                                                   self.nb_var, run_number=1,
-                                                   init_params=(pi_init,
-                                                                alpha_init,
-                                                                tau_init),
-                                                   early_stop=sbm.n_iter_early_stop)
-                if success:
-                    sbm.trained_successfully_ = True
-                    was_ever_successful = True
-                    sbm_clusters = tau.argmax(1)
-                    comp_cost_sbm = self.calculate_comparable_cost(nb_blocks,
-                                                                   sbm_clusters)
-                    if ll > sbm.loglikelihood_ and comp_cost_sbm < comp_cost:
-                        counter += 1
-                        sbm.loglikelihood_ = ll
-                        comp_cost = comp_cost_sbm
-                        sbm.pi_ = pi
-                        sbm.alpha_ = alpha
-                        sbm.tau_ = tau
-                        sbm_centroids = self.hierarchical_centroids(nb_blocks,
-                                                                    sbm_clusters)
-                        successful_sbm = sbm.copy()
-        if was_ever_successful:
-            return successful_sbm, sbm_centroids, comp_cost
-        return (np.nan, np.nan, np.nan)
-
-    def compute_network(self, clusters, centroids, draw_path=False, path=None,
-                        figsize=(25, 25), obj_scale=1, graph_type='full',
-                        adj_mat_2=None, clusters_2=None, centroids_2=None,
-                        shade_intersect=False, degree_view=False):
-        """
-        Creates a NetworkX object representing the fold changes' network and
-        displays it in a block form arising from clusters. The network is
-        represented with a graph where nodes are the considered entities and
-        the edges are connections between them (i.e. ones in the adjacency
-        matrix). Members of every block are grouped around their centroid
-        (its node is bigger then other nodes), and have a color different
-        from other blocks.
-
-        Parameters
-        ----------
-        clusters : ndarray
-            1D array of length nb_var containing integers indicating clusters
-            to which the fold changes are assigned.
-        centroids : ndarray
-            1D array of length k containing indices in range (0, nb_var) of
-            the fold changes that act as centroids.
-        draw_path : bool, optional
-            False by default, if True and the path is given then the path is
-            displayed on the graph with red nodes and thick red edges with the
-            remaining edges thin and colored in light grey (the remaining
-            nodes are displayed normally).
-        path : array-like or None, optional
-            If not None (default), 1D container with strings (elements should
-            belong to var_names) containing names of the entities as nodes
-            in the path of interest (in the correct order).
-        figsize : (float, float), optional
-            Width and height of the figure(s). The default is (25,25).
-        obj_scale : float, optional
-            Parameter used to control the scale of objects in the graph, which
-            zooms in if bigger than 1 and zooms out if smaller than 1.
-            The default is 1.
-        graph_type : str, optional
-            The following options are possible:
-                - 'full' (default) : the whole graph is displayed, with edges
-                colored in black if undirected, and grey for simultaneous
-                and green for predictive connections if directed.
-                - 'intersection' : if adj_mat_2 is given, displays only the
-                intersection between the main network and the network defined
-                by adj_mat_2.
-                - 'difference' : if adj_mat_2 is given, displays the main
-                network without its intersection with the network defined
-                by adj_mat_2.
-        adj_mat_2 : ndarray or None, optional
-            If not None (default), 2D array of shape (nb_var, nb_var)
-            indicating whether the fold changes are connected or not (same
-            to adj_mat). Represents the adjacency matrix of some other set of
-            fold changes of interest. Should be based on the measurements for
-            the same entities as the base network for a proper comparison.
-            Used if graph_type is 'intersection' or 'difference'.
-        clusters_2 : ndarray, optional
-            If not None (default), 1D array of length nb_var containing 
-            integers indicating clusters to which the fold changes are assigned.
-            This alternative clustering specification serves to color the nodes
-            with respect to the corresponding clustering (typically to compare
-            clusters to clusters_2).
-        centroids_2 : ndarray, optional
-            If not None (default), 1D array of length k containing indices in 
-            range (0, nb_var) of the fold changes that act as centroids. This
-            second sets of centroids associated with an alternative clustering
-            clusters_2 is used only for centroid node sizes (typically to 
-            compare centroids to centroids_2).
-        shade_intersect : bool, optional
-            If True, adj_mat_2 is given, and graph_type is 'full' (makes no
-            difference if 'intersection' or 'difference'), displays the entire
-            graph but shades the intersection by coloring in lightgrey the
-            nodes and the edges that belong entirely to the intersection with
-            the network defined by adj_mat_2. The default is False.
-        degree_view : bool, optional
-            If True, the sizes of nodes reflect their degrees (the relationship
-            is increasing and non-linear). Otherwise (default), all nodes have 
-            the samesizes, except for the centroids that are bigger then the 
-            others.
-
-        Returns
-        -------
-        None.
-
-        """
-        if (clusters_2 is not None) and (centroids_2 is not None):
-            assert_cond = ((len(centroids_2) == len(centroids)) 
-                           and (len(np.unique(clusters_2)) == len(np.unique(clusters_2))))
-            assert_str = "Number of clusters in the second set should match that in the first."
-            assert assert_cond, assert_str
-        sparse_simil_mat = sparse.csr_matrix(self.adj_mat)
-        # Extracting edges:
-        indices_ones_graph = list(sparse_simil_mat.nonzero())
-        # Node sizes:
-        if degree_view:
-            node_degrees = self.adj_mat + self.adj_mat.T
-            node_degrees[node_degrees == 2] = 1
-            node_degrees = node_degrees.sum(axis=0)
-            node_size = np.exp(1 + 5 * node_degrees /
-                               node_degrees.max()) * 20 * obj_scale
-        else:
-            node_size = np.ones(self.nb_var) * 1000 * obj_scale
-            centroids_size = centroids_2 if centroids_2 is not None else centroids
-            node_size[centroids_size] = 3500 * obj_scale
-        # Create a data frame for node characteristics:
-        graph_carac = pd.DataFrame(
-            {'gene': self.var_names, 'node size': node_size})
-        if shade_intersect and (adj_mat_2 is not None):
-            graph_carac['intersect'] = [
-                (self.adj_mat[i, :] == adj_mat_2[i, :]).all() for i in range(self.nb_var)]
-        else:
-            graph_carac['intersect'] = False
-
-        cmap = cm.get_cmap('gist_rainbow')
-        cl_colors = cmap(np.linspace(0.15, 1, clusters.max() + 1))
-        clusters_color = clusters_2 if clusters_2 is not None else clusters
-        # Shading nodes in the intersection (if relevant):
-        node_color = ['lightgrey' if (graph_carac['intersect']
-                                      .iloc[i]) 
-                      else cl_colors[clusters_color[i]] for i in range(self.nb_var)]
-        graph_carac['color'] = node_color
-        ecolor_main = 'black'
-        eweight_main = 0.2
-
-        if self.directed and self.optimal_warp_mat is not None:
-            ecolor_dir = 'green'
-            eweight_dir = 0.3
-            optimal_warp_flat = self.optimal_warp_mat[indices_ones_graph[0],
-                                                      indices_ones_graph[1]]
-            fc_graph = nx.DiGraph()
-            all_edges = np.array(indices_ones_graph).T
-            dir_edges = all_edges[(optimal_warp_flat == 1).nonzero()[0]]
-            undir_edges = all_edges[(optimal_warp_flat == 0).nonzero()[0]]
-            # Constructing the path (if relevant):
-            if draw_path and path is not None:
-                path_edges = []
-                for i, e_1 in enumerate(path[:-1]):
-                    e_2 = path[i+1]
-                    ind_e_1 = int((self.var_names == e_1).nonzero()[0])
-                    ind_e_2 = int((self.var_names == e_2).nonzero()[0])
-                    path_edge = [ind_e_1, ind_e_2]
-                    path_edges.append(path_edge)
-                    dir_edges = np.delete(dir_edges,
-                                          ((dir_edges == path_edge)
-                                           .all(axis=1)).nonzero(),
-                                          axis=0)
-                    undir_edges = np.delete(undir_edges,
-                                            ((undir_edges == path_edge)
-                                             .all(axis=1)).nonzero(),
-                                            axis=0)
-                    undir_edges = np.delete(undir_edges,
-                                            ((undir_edges == path_edge[::-1])
-                                             .all(axis=1)).nonzero(),
-                                            axis=0)
-                    graph_carac['color'].where(graph_carac['gene'] != e_1,
-                                               'red', inplace=True)
-                graph_carac['color'].where(graph_carac['gene'] != path[-1],
-                                           'red', inplace=True)
-                eweight_path = 10
-                ecolor_path = 'red'
-            # Defining characteristics for the cases with intersection, without
-            # intersection and with shaded difference:
-            if (adj_mat_2 is not None) and (shade_intersect or graph_type != 'full'):
-                ecolor_inter_undir = (ecolor_main if graph_type == 'intersection'
-                                      else 'lightgrey')
-                ecolor_inter_dir = (ecolor_dir if graph_type == 'intersection'
-                                    else 'lightgrey')
-                eweight_inter_dir = (eweight_dir if graph_type == 'intersection'
-                                     else eweight_main)
-                sparse_simil_mat_2 = sparse.csr_matrix(adj_mat_2)
-                indices_ones_graph_2 = list(sparse_simil_mat_2.nonzero())
-                all_edges_2 = np.array(indices_ones_graph_2).T
-                dir_edges_zl = list(zip(dir_edges[:, 0], dir_edges[:, 1]))
-                undir_edges_zl = list(
-                    zip(undir_edges[:, 0], undir_edges[:, 1]))
-                all_edges_2_zl = list(
-                    zip(all_edges_2[:, 0], all_edges_2[:, 1]))
-                dir_to_del = [i for i in range(dir_edges.shape[0]) if (
-                    dir_edges_zl[i] in all_edges_2_zl)]
-                dir_edges_no_int = np.delete(dir_edges, dir_to_del, axis=0)
-                undir_to_del = [i for i in range(undir_edges.shape[0]) if (
-                    undir_edges_zl[i] in all_edges_2_zl)]
-                undir_edges_no_int = np.delete(
-                    undir_edges, undir_to_del, axis=0)
-                # Edges for the cases without intersection and with shaded difference:
-                if graph_type != 'intersection':
-                    fc_graph.add_edges_from(undir_edges_no_int, color=ecolor_main,
-                                            weight=eweight_main)
-                    fc_graph.add_edges_from(undir_edges_no_int[:, (1, 0)],
-                                            color=ecolor_main, weight=eweight_main)
-                    fc_graph.add_edges_from(dir_edges_no_int, color=ecolor_dir,
-                                            weight=eweight_dir)
-                # Edges for the cases with intersection and with shaded difference:
-                if graph_type != 'difference':
-                    fc_graph.add_edges_from(undir_edges[undir_to_del],
-                                            color=ecolor_inter_undir,
-                                            weight=eweight_main)
-                    fc_graph.add_edges_from(dir_edges[dir_to_del],
-                                            color=ecolor_inter_dir,
-                                            weight=eweight_inter_dir)
-                # Adding the path to the graph (if relevant):
-                if draw_path and path is not None:
-                    ecolor_inter_path = (ecolor_path if graph_type == 'intersection'
-                                         else 'lightgrey')
-                    eweight_inter_path = (eweight_path if graph_type == 'intersection'
-                                          else eweight_main)
-                    path_edges_a = np.array(path_edges)
-                    path_edges_zl = list(
-                        zip(path_edges_a[:, 0], path_edges_a[:, 1]))
-                    path_to_del = [i for i in range(path_edges_a.shape[0]) if (
-                        path_edges_zl[i] in all_edges_2_zl)]
-                    path_edges_no_int = np.delete(
-                        path_edges_a, path_to_del, axis=0)
-                    if graph_type != 'intersection':
-                        fc_graph.add_edges_from(path_edges_no_int,
-                                                color=ecolor_path,
-                                                weight=eweight_path)
-                    if graph_type != 'difference':
-                        fc_graph.add_edges_from(path_edges_a[path_to_del],
-                                                color=ecolor_inter_path,
-                                                weight=eweight_inter_path)
-            else:
-                # Adding the path to the graph (if relevant):
-                if draw_path and path is not None:
-                    ecolor_dir = 'grey'
-                    ecolor_main = 'grey'
-                    eweight_dir = eweight_main
-                    fc_graph.add_edges_from(path_edges, color='red',
-                                            weight=eweight_path)
-                fc_graph.add_edges_from(undir_edges, color=ecolor_main,
-                                        weight=eweight_main)
-                fc_graph.add_edges_from(undir_edges[:, (1, 0)], color=ecolor_main,
-                                        weight=eweight_main)
-                fc_graph.add_edges_from(dir_edges, color=ecolor_dir,
-                                        weight=eweight_dir)
-        else:  # Undirected graph
-            fc_graph = nx.Graph()
-            all_edges = np.array(indices_ones_graph).T
-            fc_graph.add_edges_from(all_edges, color=ecolor_main,
-                                    weight=eweight_main)
-
-        nodes_dict = {}
-        for i in range(self.nb_var):
-            nodes_dict[i] = self.var_names[i]
-        fc_graph = nx.relabel_nodes(fc_graph, nodes_dict)
-
-        graph_carac = graph_carac.set_index('gene')
-        graph_carac = graph_carac.reindex(fc_graph.nodes())
-        # Assigning positions to centroids:
-        nb_blocks = len(centroids)
-        theta = np.linspace(0, 1, len(centroids) + 1)[:-1] * 2 * np.pi
-        theta = theta.astype(np.float32)
-        centroids_pos = np.column_stack([np.cos(theta), np.sin(theta),
-                                         np.zeros((len(centroids), 0))])
-        centroids_pos = nx.rescale_layout(centroids_pos, scale=1.3)
-        centroids_pos = dict(zip(self.var_names[centroids], centroids_pos))
-        centroids_pos_df = pd.DataFrame(centroids_pos).sort_values(0, axis=1)
-        centroids_pos_df.columns = self.var_names[centroids]
-        centroids_pos = centroids_pos_df.to_dict('list')
-        fc_positions = centroids_pos.copy()
-        missing = []
-        # Creating subgraphs for every cluster:
-        for i in range(nb_blocks):
-            centroid_i = self.var_names[centroids][i]
-            cluster_i = np.argwhere(clusters == i).squeeze()
-            cluster_i_rest = np.delete(self.var_names[cluster_i],
-                                       np.where(self.var_names[cluster_i] == centroid_i))
-            cluster_i_subgraph = fc_graph.subgraph(cluster_i_rest)
-            subnet_scale = 1.2 * cluster_i.size/self.nb_var + 3 / nb_blocks
-            cluster_i_layout = nx.kamada_kawai_layout(cluster_i_subgraph,
-                                                      center=centroids_pos[centroid_i],
-                                                      scale=subnet_scale)
-            # Missing (isolated) nodes are ignored in the graph and printed
-            # for the user:
-            for g in cluster_i_rest:
-                try:
-                    fc_positions[g] = cluster_i_layout[g]
-                except KeyError:
-                    missing.append(g)
-                    print(f'{g} is missing')
-        edge_colors = nx.get_edge_attributes(fc_graph, 'color').values()
-        edge_widths = nx.get_edge_attributes(fc_graph, 'weight').values()
-        
-        sns.set_style("white")
-        plt.figure(figsize=figsize)
-        nx.draw_networkx(fc_graph, fc_positions, with_labels=True, 
-                         width=list(edge_widths), node_color=graph_carac['color'], 
-                         font_size=8*obj_scale, node_size=graph_carac['node size'], 
-                         edge_color=edge_colors, alpha=0.5, font_family='serif')
-        plt.margins(0.0)
-        plt.show()
-        return
-
-    def plot_most_connected_members(self, clusters, centroids=None, warps=None,
-                                    nb_components=5, figsize=None):
-        """
-        Identifies the most connected components within each cluster, and
-        displays a plot of the corresponding fold changes' means. If warps are
-        given, then also displays the information on the warping groups of
-        the components.
-
-        Parameters
-        ----------
-        clusters : ndarray
-            1D array of length nb_var containing integers indicating clusters
-            to which the fold changes are assigned.
-        centroids : ndarray or None, optional
-            If not None (default), 1D array of length k containing indices in
-            range (0, nb_var) of the fold changes that act as centroids.
-        warps : ndarray or None, optional
-            If not None (default), 1D array of length nb_var containing
-            integers in range (-max_warp_step, max_warp_step + 1)
-            indicating fold changes' warps with respect to their
-            corresponding centroids.
-        nb_components : int, optional
-            Number of the most connected components to select in each cluster.
-            The default is 5.
-        figsize : (float, float), optional
-            Width and height of the figure(s). The default is None.
-
-        Returns
-        -------
-        most_connected_members_within : ndarray
-            2D array of shape (nb_blocks, nb_components) containing indices
-            in range (0, nb_var) of nb_components most connected components
-            for each cluster (block).
-
-        """
-        nb_blocks = clusters.max()+1
-        most_connected_members_within = np.zeros((nb_blocks, nb_components),
-                                                 dtype=int)
-        ht_ratios = np.ones(nb_blocks+1)
-        ht_ratios[0] *= 0.02
-        warp_type_lines = list(mpl.lines.lineStyles.keys())[:4]
-        warp_type_lines.extend(list(mpl.markers.MarkerStyle.markers.keys()))
-        # covers up to 45 warp types (should be enough)
-
-        mpl.rcParams['lines.linewidth'] = 3
-        sns.set_style("darkgrid")
-        sns.set_theme(font="serif")
-        if figsize is None:
-            figsize = (10, nb_blocks * 6)
-        fig, axs = plt.subplots(nb_blocks + 1, 1,
-                                figsize=figsize, sharey=False,
-                                gridspec_kw={"height_ratios": ht_ratios})
-        label_scale = min(figsize) / 10
-        for i in range(nb_blocks):
-            #ax_i = axs[i//nb_cols+1] if (nb_cols > 1) and (nb_rows != 1) else axs
-            #col_to_plot = i % nb_cols if nb_cols != 1 else i
-            if centroids is not None:
-                centroid_str = self.var_names[centroids[i]]
-                print(f'Cluster {i+1}: ' + centroid_str)
-            else:
-                print('Cluster {i+1}')
-            print('Most connected members within cluster:')
-            cluster_i = np.argwhere(clusters == i).squeeze()
-            simil_array_cluster_i = self.adj_mat[cluster_i, :][:, cluster_i]
-            most_connected_members_within[i, :] = cluster_i[np.argsort(np.sum(simil_array_cluster_i,
-                                                                              axis=1))[-nb_components:]]
-            legend_i = list(
-                self.var_names[most_connected_members_within[i, :]])
-            print(legend_i)
-            for it in range(nb_components):
-                if self.time_warp and warps is not None:
-                    warp_it = warps[most_connected_members_within[i, it]]
-                    legend_i[it] += f" (warped by {warp_it})"
-                    linestyle_it = warp_type_lines[warps.max() + warp_it]
-                else:
-                    linestyle_it = '-'
-                axs[i+1].plot(self.time_points,
-                              self.means[:,
-                                         most_connected_members_within[i, :][it]],
-                              linestyle_it)
-            if centroids is not None:
-                # Centroids used as subtitles corresponding to clusters:
-                axs[i+1].set_title('Centroid: ' + centroid_str, color='red')
-                axs[i+1].legend(legend_i, fontsize=14 * label_scale, 
-                                labelspacing=0.2 * label_scale)
-            axs[i+1].axhline(y=0, xmin=0, xmax=self.time_points[-1]+1,
-                             linestyle='--', color='k')
-        axs[0].axis("off")
-        axs[0].set_title(f"{nb_components} most connected \n members within clusters",
-                         fontweight='bold', fontsize=20 * label_scale)
-        fig.tight_layout()
-        plt.show()
-        return most_connected_members_within
-
-    def compute_entity_path(self, path_e1_to_e2=None, entity_1=None,
-                            entity_2=None, plot=True, figsize=(10, 7)):
-        """
-        If entity_1 and entity_2 are given (and path_e1_to_e2 is not),
-        computes a shortest path from entity_1 to entity_2, and plots a figure
-        with the means of the fold changes in the path. If path_e1_to_e2 is
-        given, then produces a plot of the means of the fold changes'
-        in path_e1_to_e2.
-
-        Parameters
-        ----------
-        path_e1_to_e2 : array-like or None, optional
-            If not None (default), 1D container with strings (elements should
-            belong to var_names) containing names of the entities as nodes
-            in the path of interest (in the correct order).
-            Either 'path_e1_to_e2' or 'entity_1' and 'entity_1' have to be
-            non-None, with 'path_e1_to_e2' having priority for the path
-            construction.
-        entity_1 : str or None, optional
-           Starting node for path. The default is None.
-           Either 'path_e1_to_e2' or 'entity_1' and 'entity_1' have to be
-           non-None, with 'path_e1_to_e2' having priority for the path
-           construction.
-        entity_2 : str or None, optional
-            Ending node for path. The default is None.
-            Either 'path_e1_to_e2' or 'entity_1' and 'entity_1' have to be
-            non-None, with 'path_e1_to_e2' having priority for the path
-            construction.
-        plot : bool, optional
-            If True (default), displays a figure with the means of the fold
-            changes in the path.
-        figsize : (float, float), optional
-            Width and height of the figure(s). The default is (10,7).
-
-        Returns
-        -------
-        path_e1_to_e2 : array-like
-            1D container with strings containing names of the entities as nodes
-            in the path of interest.
-        path_e1_to_e2_warps : list
-            Contains len(path_e1_to_e2)-1 elements, the warps between the
-            consecutive nodes in the path, allows to determine the extend to
-            which the path has a predictive character. Returned if the graph
-            is directed.
-
-        """
-        assert_str = "No path or entities to connect provided."
-        assert (path_e1_to_e2 is not None) or (
-            entity_1 is not None and entity_2 is not None), assert_str
-
-        # Create a NetworkX object:
-        fc_graph = nx.DiGraph(self.adj_mat)
-        nx.relabel_nodes(fc_graph, dict(enumerate(self.var_names)), copy=False)
-
-        # Compute shortest path:
-        if path_e1_to_e2 is None:
-            path_e1_to_e2 = nx.shortest_path(fc_graph, entity_1, entity_2)
-        path_e1_to_e2_warps = []
-        s_path = "Gene path: "
-        s_warps = "Warps: "
-
-        if plot:
-            mpl.style.use('seaborn')
-            sns.set_theme(font="serif")
-            fig, ax = plt.subplots(figsize=figsize)
-            cmap = cm.get_cmap('gist_rainbow')
-            curve_colors = cmap(np.linspace(0, 1, len(path_e1_to_e2)))
-        for i, e in enumerate(path_e1_to_e2[:-1]):
-            ind_e_1 = np.argwhere(self.var_names == e).squeeze()
-            ind_e_2 = np.argwhere(
-                self.var_names == path_e1_to_e2[i+1]).squeeze()
-            s_path += f"{e} --> "
-            # Extract warps:
-            if self.time_warp:
-                warp_e1_to_e2 = self.optimal_warp_mat[ind_e_1, ind_e_2]
-                path_e1_to_e2_warps.append(warp_e1_to_e2)
-                s_warps += f"  {warp_e1_to_e2} "
-            if plot:
-                ax.plot(self.time_points, self.means[:, ind_e_1],
-                        c=curve_colors[i])
-        s_path += (entity_2 if entity_2 is not None else path_e1_to_e2[-1])
-
-        # Plot curves:
-        if plot:
-            ax.plot(self.time_points, self.means[:, ind_e_2],
-                    c=curve_colors[-1])
-            ax.legend(path_e1_to_e2, fontsize=12, labelspacing=0.2)
-            ax.set_title(s_path, fontweight='bold', fontsize=16)
-            fig.tight_layout()
-            plt.show()
-        print(s_path)
-        if self.time_warp:
-            print(s_warps)
-            return path_e1_to_e2, path_e1_to_e2_warps
-        return path_e1_to_e2
-
-    def draw_mesoscopic(self, clusters, centroids, obj_scale=1,
-                        node_label_size=30, figsize=(20, 20)):
-        """
-        Displays a mesoscopic representation of the fold changes network, i.e.
-        a graph with k=len(centroids) nodes representing clusters, each labeled
-        by the name of the corresponding centroid, with sizes proportional to
-        respective cluster sizes. The edges represent connections between
-        clusters, their thickness is proportional to the respective number of
-        connections. If the network is directed, then arrow head sizes are
-        proportional to the percentage of connections of the corresponding
-        predictive type among all connections between the considered clusters.
-        In the latter case edges are annotated with the distribution among the
-        connection types (i.e. warps) in the following format: for an edge
-        between A and B, the annotation is of the form "% of predictive
-        connections from B to A - total number of connections between
-        A and B - % of predictive connections from A to B". In the case of
-        undirected graph, the edges are annotated with the corresponding
-        numbers of connections only.
-
-        Parameters
-        ----------
-        clusters : ndarray
-            1D array of length nb_var containing integers indicating clusters
-            to which the fold changes are assigned.
-        centroids : ndarray
-            1D array of length k containing indices in range (0, nb_var) of
-            the fold changes that act as centroids.
-        obj_scale : float, optional
-            Parameter used to control the scale of objects in the graph,
-            which zooms in if bigger than 1 and zooms out if smaller than 1.
-            The default is 1.
-        node_label_size : int, optional
-            Font size for text labels on nodes (names of centroids).
-            The default is 30.
-        figsize : (float, float), optional
-            Width and height of the figure(s). The default is (20,20).
-
-        Returns
-        -------
-        None.
-
-        """
-        nb_blocks = len(centroids)
-        node_size = np.array([(np.count_nonzero(clusters == i)
-                               / self.nb_var) for i in range(nb_blocks)])
-        clust_pairs = np.array(
-            list(itertools.combinations(range(nb_blocks), 2)))
-        clust_pairs_tuple = []
-        # Array containing numbers of connections for each pair of clusters
-        # --> edge widths:
-        nb_connect_mat = np.zeros((nb_blocks, nb_blocks), dtype=int)
-        edge_labels = {}
-        scale = obj_scale * 18
-
-        # Directed case (with time warping), i.e. with arrows and annotations:
-        if self.directed and self.optimal_warp_mat is not None:
-            meso_graph = nx.DiGraph()
-            prop_warp_mat = np.zeros((nb_blocks, nb_blocks))
-            for (i, j) in clust_pairs:
-                clust_pairs_tuple.append((i, j))
-
-                # Block of the adjacency matrix corresponding to connections
-                # from fold changes in cluster i to those in j:
-                clusters_i_j_adj_mat = self.adj_mat[clusters ==
-                                                    i, :][:, clusters == j]
-                # Adding connections from i to j:
-                nb_connect_mat[i, j] = clusters_i_j_adj_mat.sum()
-
-                # Corresponding block of the OW matrix:
-                clusters_i_j_warpmat = self.optimal_warp_mat[clusters == i,
-                                                             :][:, clusters == j]
-                # Warps of existing connections:
-                warps_of_connections_ij = clusters_i_j_warpmat[clusters_i_j_adj_mat
-                                                               .astype(bool)]
-
-                # Block of the adjacency matrix corresponding to connections
-                # from fold changes in cluster j to those in i:
-                clusters_j_i_adj_mat = self.adj_mat[clusters == j, :][:,
-                                                                      clusters == i]
-                # Corresponding block of the OW matrix:
-                clusters_j_i_warpmat = self.optimal_warp_mat[clusters == j,
-                                                             :][:, clusters == i]
-                warps_of_connections_ji = clusters_j_i_warpmat[clusters_j_i_adj_mat
-                                                               .astype(bool)]
-                # Adding connections from j to i:
-                nb_connect_mat[i, j] += (clusters_j_i_adj_mat.sum()
-                                         - np.count_nonzero(warps_of_connections_ij == 0))
-                # Calculate proportions of each warp type --> arrow head sizes:
-                prop_warp_mat[i, j] = (np.count_nonzero(warps_of_connections_ij > 0) /
-                                       (nb_connect_mat[i, j] if nb_connect_mat[i, j] != 0 else 1))
-
-                prop_warp_mat[j, i] = (np.count_nonzero(warps_of_connections_ji > 0) /
-                                       (nb_connect_mat[i, j] if nb_connect_mat[i, j] != 0 else 1))
-                meso_graph.add_edge(i, j,
-                                    width=nb_connect_mat[i, j] * obj_scale**2,
-                                    arrowsize=prop_warp_mat[i, j])
-                meso_graph.add_edge(j, i,
-                                    width=nb_connect_mat[i, j] * obj_scale**2,
-                                    arrowsize=prop_warp_mat[j, i])
-                # Annotation:
-                if nb_connect_mat[i, j] != 0:
-                    edge_labels[(i, j)
-                                ] = f"{round(prop_warp_mat[j, i] * 100)}%"
-                    edge_labels[(i, j)] += f"-{nb_connect_mat[i, j]}"
-                    edge_labels[(i, j)
-                                ] += f"-{round(prop_warp_mat[i, j] * 100)}%"
-
-            node_labels = {n: self.var_names[centroids[n]] for n in meso_graph}
-            sns.set_style("white")
-
-            # Plot the graph:
-            plt.figure(figsize=figsize)
-            theta = np.linspace(0, 1, nb_blocks + 1)[:-1] * 2 * np.pi
-            theta = theta.astype(np.float32)
-            pos = np.column_stack([np.cos(theta), np.sin(theta),
-                                   np.zeros((nb_blocks, 0))])
-            pos = nx.rescale_layout(pos, scale=0.9)
-            pos = dict(zip(meso_graph, pos))
-            pos_df = pd.DataFrame(pos).sort_values(0, axis=1)
-            pos_df.columns = range(nb_blocks)
-            pos = pos_df.to_dict('list')
-            nx.draw_networkx_nodes(meso_graph, pos,
-                                   node_size=np.array(list(node_size))
-                                   * scale**4 / 1.5, alpha=0.75,
-                                   node_color='purple', margins=(0.1, 0.1))
-            nx.draw_networkx_labels(meso_graph, pos, labels=node_labels,
-                                    font_size=node_label_size,
-                                    font_family='serif')
-            for edge in meso_graph.edges(data=True):
-                w = edge[2]['width']
-                a = edge[2]['arrowsize']
-                nx.draw_networkx_edges(meso_graph, pos,
-                                       edgelist=[(edge[0], edge[1])],
-                                       arrowsize=a * scale**2 / 2,
-                                       width=w/nb_connect_mat.sum() * scale,
-                                       node_size=np.array(list(node_size))
-                                       * scale**4 / 2.5)
-        # Undirected case:
-        else:
-            meso_graph = nx.Graph()
-            for (i, j) in clust_pairs:
-                clust_pairs_tuple.append((i, j))
-                # Block of the adjacency matrix corresponding to connections
-                # from fold changes in cluster i to those in j:
-                clusters_i_j_adj_mat = self.adj_mat[clusters ==
-                                                    i, :][:, clusters == j]
-                nb_connect_mat[i, j] = clusters_i_j_adj_mat.sum()
-                meso_graph.add_edge(i, j,
-                                    width=nb_connect_mat[i, j] * obj_scale**2)
-                # Annotation:
-                if nb_connect_mat[i, j] != 0:
-                    edge_labels[(i, j)] = f"{nb_connect_mat[i, j]}"
-
-            node_labels = {n: self.var_names[centroids[n]] for n in meso_graph}
-            sns.set_style("white")
-
-            # Plot the graph:
-            plt.figure(figsize=figsize)
-            theta = np.linspace(0, 1, nb_blocks + 1)[:-1] * 2 * np.pi
-            theta = theta.astype(np.float32)
-            pos = np.column_stack([np.cos(theta), np.sin(theta),
-                                   np.zeros((nb_blocks, 0))])
-            pos = nx.rescale_layout(pos, scale=0.9)
-            pos = dict(zip(meso_graph, pos))
-            pos_df = pd.DataFrame(pos).sort_values(0, axis=1)
-            pos_df.columns = range(nb_blocks)
-            pos = pos_df.to_dict('list')
-            nx.draw_networkx_nodes(meso_graph, pos,
-                                   node_size=np.array(list(node_size))
-                                   * scale**4 / 1.5, alpha=0.75,
-                                   node_color='purple', margins=(0.1, 0.1))
-            nx.draw_networkx_labels(meso_graph, pos, labels=node_labels,
-                                    font_size=node_label_size,
-                                    font_family='serif')
-            for edge in meso_graph.edges(data=True):
-                w = edge[2]['width']
-                nx.draw_networkx_edges(meso_graph, pos,
-                                       edgelist=[(edge[0], edge[1])],
-                                       width=w/nb_connect_mat.sum() * scale,
-                                       node_size=np.array(list(node_size))
-                                       * scale**4 / 2.5)
-        nx.draw_networkx_edge_labels(meso_graph, pos, edge_labels=edge_labels,
-                                     font_size=15 * obj_scale**2,
-                                     font_family='serif',
-                                     bbox={'fc': 'w', 'ec': 'k'})
-        plt.show()
-
-    def graph_analysis(self, clusters, nb_top=10):
-        """
-        Performs a series of graph analyses of the fold changes network, in
-        particular: identifies among the entities nb_top top hits, authorities,
-        nodes with respect to pagerank, degree and betweenness centrality. It
-        also plots a figure displaying degree distribution of the nodes.
-
-        Parameters
-        ----------
-        clusters : ndarray
-            1D array of length nb_var containing integers indicating clusters
-            to which the fold changes are assigned.
-        nb_top : int, optional
-            Number of top elements to include. The default is 10.
-
-        Returns
-        -------
-        graph_analysis : DataFrame
-            2D DataFrame containing the names of entities that appeared in at
-            least one of the considered tops as rows, and the following
-            information as columns: cluster (number), all of the considered
-            tops (1 if among the corresponding top and 0 otherwise), and total
-            sum of all columns except the cluster one. Ordered so that the
-            entities with the highest total score are at the top.
-
-        """
-        vn_dict = {i: self.var_names[i] for i in range(self.nb_var)}
-        graph = nx.relabel_nodes(nx.DiGraph(self.adj_mat), vn_dict)
-        # General information:
-        nx.info(graph)
-
-        # Hubs and authorities:
-        (hubs, auth) = nx.hits(graph)
-        top_hubs = pd.Series(hubs).sort_values(
-            ascending=False).iloc[:nb_top].index
-        top_auth = pd.Series(auth).sort_values(
-            ascending=False).iloc[:nb_top].index
-
-        # PageRank:
-        pagerank = nx.pagerank(graph)
-        top_pagerank = pd.Series(pagerank).sort_values(
-            ascending=False).iloc[:nb_top].index
-
-        # Degree analysis (code from https://networkx.org/documentation/stable/auto_examples/drawing/plot_degree.html):
-        mpl.style.use('seaborn')
-        sns.set_theme(font="serif")
-
-        degree_sequence = sorted((d for n, d in graph.degree()), reverse=True)
-        top_degree = pd.DataFrame(graph.degree()).set_index(
-            0).sort_values(1).index[:nb_top]
-
-        fig, axs = plt.subplots(1, 2, figsize=(8, 4))
-        fig.suptitle('Degree distribution')
-        axs[0].plot(degree_sequence, "b-", marker="o")
-        axs[0].set_title("Degree Rank Plot")
-        axs[0].set_ylabel("Degree")
-        axs[0].set_xlabel("Rank")
-
-        axs[1].bar(*np.unique(degree_sequence, return_counts=True))
-        axs[1].set_title("Degree histogram")
-        axs[1].set_xlabel("Degree")
-        axs[1].set_ylabel("# of Nodes")
-
-        fig.tight_layout()
-        plt.show()
-
-        # Betweenness centrality:
-        bc = nx.betweenness_centrality(graph)
-        top_bc = pd.Series(bc).sort_values(ascending=False).iloc[:nb_top].index
-
-        # Summary:
-        all_measure_indices = (top_hubs.union(top_auth).union(top_bc)
-                               .union(top_degree).union(top_pagerank))
-        graph_analysis = pd.DataFrame(np.zeros((len(all_measure_indices),
-                                                6), dtype=int),
-                                      index=all_measure_indices,
-                                      columns=['Cluster', 'Top degree',
-                                               'Top central', 'Top hub',
-                                               'Top authority', 'Top rank'])
-        graph_analysis['Cluster'] = clusters[np.intersect1d(self.var_names,
-                                                            all_measure_indices,
-                                                            return_indices=True)[1]]
-        graph_analysis['Top degree'] = all_measure_indices.isin(
-            top_degree).astype(int)
-        graph_analysis['Top central'] = all_measure_indices.isin(
-            top_bc).astype(int)
-        graph_analysis['Top hub'] = all_measure_indices.isin(
-            top_hubs).astype(int)
-        graph_analysis['Top authority'] = all_measure_indices.isin(
-            top_auth).astype(int)
-        graph_analysis['Top pagerank'] = all_measure_indices.isin(
-            top_pagerank).astype(int)
-        graph_analysis['Total'] = graph_analysis.drop(
-            columns='Cluster').sum(axis=1)
-        graph_analysis.sort_values(by='Total', ascending=False, inplace=True)
-
-        return graph_analysis
-
-    def pathway_search(self, clusters):
-        """
-        Identifies all shortest paths between entities in the network of length
-        3 and bigger, and presents them along with their scores with respect to
-        criteria potentially relevant for hypothesis generation.
-
-        Parameters
-        ----------
-        clusters : ndarray
-            1D array of length nb_var containing integers indicating clusters
-            to which the fold changes are assigned.
-
-        Returns
-        -------
-        all_paths_dict : dict
-            Dictionary with keys of type 'string' indicating the path length l,
-            and the values are dataframes. Each raw of such dataframe
-            corresponds to a path, the names of the nodes listed in the first
-            l columns. There are three other columns: warp score (number of
-            strictly positive warps in the path, i.e. number of predictive
-            relationships), cluster score (number of times there is a change
-            in cluster in the path), and total score (sum of the first two).
-            Paths in the dataframe are ordered with respect to the total score
-            (highest to lowest).
-
-        """
-        graph = nx.DiGraph(self.adj_mat)
-        shortest_pairs = pd.DataFrame(dict(nx.all_pairs_shortest_path(graph)))
-        shortest_pairs_length = pd.DataFrame(
-            dict(nx.all_pairs_shortest_path_length(graph)))
-        max_length = int(shortest_pairs_length.max().max())
-        all_paths_dict = {}
-        # Iterating on path lengths:
-        for l in range(3, max_length+1):
-            l_paths = (pd.melt(shortest_pairs.where(shortest_pairs_length == l))
-                       .dropna()['value'])
-            l_paths_df = pd.DataFrame.from_dict(dict(zip(l_paths.index,
-                                                         l_paths.values)),
-                                                orient='index')
-            l_paths_df['Warp score'] = np.zeros(
-                (l_paths_df.shape[0]), dtype=int)
-            l_paths_df['Cluster score'] = np.zeros(
-                (l_paths_df.shape[0]), dtype=int)
-            # Iterate simultaneously on nodes of paths of length l:
-            for c in range(l):
-                l_paths_df['Warp score'] += self.optimal_warp_mat[l_paths_df[c],
-                                                                  l_paths_df[c+1]]
-                cl_1 = clusters[l_paths_df.iloc[:, c]].squeeze()
-                cl_2 = clusters[l_paths_df.iloc[:, (c+1)]].squeeze()
-                l_paths_df['Cluster score'] += (cl_1 != cl_2).astype(int)
-            l_paths_df['Total score'] = (l_paths_df['Warp score']
-                                         + l_paths_df['Cluster score'])
-            l_paths_df.sort_values(
-                'Total score', ascending=False, inplace=True)
-            vn_dict = {i: self.var_names[i] for i in range(self.nb_var)}
-            l_paths_df.iloc[:, :(l + 1)] = (l_paths_df.iloc[:, :(l + 1)]
-                                            .replace(vn_dict))
-            all_paths_dict[f'{l} paths'] = l_paths_df
-        return all_paths_dict
