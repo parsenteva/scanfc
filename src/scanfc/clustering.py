@@ -759,26 +759,30 @@ class Clustering():
                 self.max_warp_step = max_warp_step
                 if self.fold_changes.means is not None:
                     (self.index_pairs,
-                     warped_distances) = (self.compute_warped_distance_pairs(max_warp_step=max_warp_step,
-                                                                             sign_pen=sign_pen,
-                                                                             pen_param=pen_param))
+                     warped_distances) = (self.fold_changes
+                                          .compute_warped_distance_pairs(max_warp_step=max_warp_step,
+                                                                         sign_pen=sign_pen,
+                                                                         pen_param=pen_param))
                     self.distances = np.min(warped_distances, axis=0)
             # Without alignment:
             else:
                 if self.fold_changes.means is not None:
                     (self.index_pairs,
-                     self.distances) = self.compute_distance_pairs(dist=self.dist,
-                                                                   sign_pen=sign_pen,
-                                                                   pen_param=pen_param)
+                     self.distances) = (self.fold_changes
+                                        .compute_distance_pairs(dist=self.dist,
+                                                                sign_pen=sign_pen,
+                                                                pen_param=pen_param))
             if self.fold_changes.means is not None:
                 if self.dist in ('d2hat', 'hellinger'):
                     if time_warp:
                         (self.dist_mat,
-                         self.optimal_warp_mat) = self.compute_warped_dist_mat(self.index_pairs,
-                                                                               warped_distances)
+                         self.optimal_warp_mat) = (self.fold_changes
+                                                   .compute_warped_dist_mat(self.index_pairs,
+                                                                            warped_distances))
                     else:
-                        self.dist_mat = self.compute_dist_mat(self.index_pairs,
-                                                              self.distances)
+                        self.dist_mat = (self.fold_changes
+                                         .compute_dist_mat(self.index_pairs,
+                                                           self.distances))
                 if self.dist == 'wasserstein':
                     fc_var = np.diagonal(self.fold_changes.cov, axis1=1, axis2=2)
                     id_tensor = (np.repeat(np.identity(self.fold_changes.nb_time_pts),
@@ -786,7 +790,8 @@ class Clustering():
                                  .reshape((self.fold_changes.nb_time_pts, self.fold_changes.nb_time_pts,
                                            self.nb_var)))
                     M1 = np.einsum('ijk,ik->ijk', id_tensor, fc_var)
-                    self.dist_mat = self.compute_cross_distances(self.fold_changes.means, M1)[0]
+                    self.dist_mat = (self.fold_changes
+                                     .compute_cross_distances(self.fold_changes.means, M1)[0])
         if random_gen:
             self.random_gen = random_gen
         else:
