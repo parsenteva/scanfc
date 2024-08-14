@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "scanfc" 
+version = "1.0.0"
+description = "ScanFC: Statistical framework for Clustering with Alignment and
+    Network inference of Fold Changes"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {file = "LICENSE.txt"}
+keywords = ["clustering", "alignment"]
+authors = [
+  {name = "Polina Arsenteva", email = "polina.arsent@gmail.com" }
+]
+maintainers = [
+  {name = "Polina Arsenteva", email = "polina.arsent@gmail.com" }
+]
+dependencies = [
+  "matplotlib", "numpy", "scipy", "seaborn", "scikit_learn"
+]
