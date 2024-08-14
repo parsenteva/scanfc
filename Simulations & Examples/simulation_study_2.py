@@ -6,9 +6,11 @@ Script performing the second series of simulation studies.
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-from scanofc import Clustering, NetworkInference
+from scanfc.clustering import FoldChanges, Clustering
+from sklearn.cluster import SpectralClustering
+from dtaidistance import dtw
 from sklearn.metrics.cluster import v_measure_score, adjusted_rand_score
-mpl.style.use('seaborn')
+mpl.style.use('seaborn-v0_8')
 mpl.rcParams['font.family'] = 'serif'
 
 def simulate_cluster_means(size, time_points, func, random_gen=None):
@@ -158,22 +160,20 @@ def perform_simulation_study(k, sim_clusters, sim_means, sim_cov, time_points,
         repetition and each approach.
 
     """
-    cl_kmed_sim = Clustering(means=sim_means, cov=sim_cov,
-                             time_points=time_points, dist='d2hat',
+    sim_fc  = FoldChanges(means=sim_means, cov=sim_cov, time_points=time_points)
+    cl_kmed_sim = Clustering(fold_changes=sim_fc, dist='d2hat',
                              random_gen=random_gen)
-    cl_kmed_sim_tw = Clustering(means=sim_means, cov=sim_cov,
-                                time_points=time_points, dist='d2hat',
+    cl_kmed_sim_tw = Clustering(fold_changes=sim_fc, dist='d2hat',
                                 time_warp=True, max_warp_step=max_warp_step,
                                 random_gen=random_gen)
     
-    sim_net = NetworkInference(means=sim_means, cov=sim_cov,
-                               time_points=time_points, dist='d2hat',
-                               time_warp=True, max_warp_step=max_warp_step,
-                               sparsity=sparsity, random_gen=random_gen)
+    sim_means_DTW = np.expand_dims(sim_means.T, -1)
+    ds = dtw.distance_matrix(sim_means_DTW.squeeze(), window=3)
+    cl_DTW = Clustering(dist_mat=ds, random_gen=random_gen)
     
-    sim_results_ars = np.zeros((nb_sim_rep, 6))
-    sim_results_vm = np.zeros((nb_sim_rep, 6))
-    sim_results_cost = np.zeros((nb_sim_rep, 6))
+    sim_results_ars = np.zeros((nb_sim_rep, 5))
+    sim_results_vm = np.zeros((nb_sim_rep, 5))
+    sim_results_cost = np.zeros((nb_sim_rep, 5))
 
     alg = 'k-means-like'
     for i in range(nb_sim_rep):
@@ -200,75 +200,56 @@ def perform_simulation_study(k, sim_clusters, sim_means, sim_cov, time_points,
                                                                           k_clusters_tw)
         sim_results_ars[i, 1] = adjusted_rand_score(sim_clusters, k_clusters_tw)
         sim_results_vm[i, 1] = v_measure_score(sim_clusters, k_clusters_tw)
-        ### SBM initialized from k-medoids:
-        (sbm_sim,
-         sbm_sim_centroids,
-         sbm_sim_comp_cost) = sim_net.infer_sbm(k, k_clusters_tw,
-                                                n_init=n_init_sbm,
-                                                verbosity=0, pi_weight=0.8,
-                                                random_gen=random_gen)
-        clusters_sbm = sbm_sim.labels
-        sim_results_cost[i, 2] = sbm_sim_comp_cost
-        sim_results_ars[i, 2] = adjusted_rand_score(sim_clusters, clusters_sbm)
-        sim_results_vm[i, 2] = v_measure_score(sim_clusters, clusters_sbm)
-        ### SBM based on random initializations:
-        (sbm_sim_random,
-         sbm_sim_centroids_random,
-         sbm_sim_comp_cost_random) = sim_net.infer_sbm(k, k_clusters_tw,
-                                                       n_init=n_init_sbm,
-                                                       verbosity=0, random=True,
-                                                       random_gen=random_gen)
-        clusters_sbm_random = sbm_sim_random.labels
-        #print(clusters_sbm_random)
-        sim_results_cost[i, 3] = sbm_sim_comp_cost_random
-        sim_results_ars[i, 3] = adjusted_rand_score(sim_clusters, clusters_sbm_random)
-        sim_results_vm[i, 3] = v_measure_score(sim_clusters, clusters_sbm_random)
-        ### K-means clustering of the UMAP of the d2hat distance matrix:
+        ### Spectral clustering of simulated data :
         ### WITHOUT time warping:
-        (k_clusters_umap,
-         k_centroids_umap) = cl_kmed_sim.fc_clustering(k, nb_rep=nb_cl_rep,
-                                                       disp_plot=False,
-                                                       method='umap')
-        sim_results_cost[i, 4] = cl_kmed_sim.calculate_comparable_cost(k,
-                                                                       k_clusters_umap)
-        sim_results_cost[i, 4] /= len(time_points)
-        sim_results_ars[i, 4] = adjusted_rand_score(sim_clusters, k_clusters_umap)
-        sim_results_vm[i, 4] = v_measure_score(sim_clusters, k_clusters_umap)
-        ### K-means clustering of the UMAP of the d2hat distance matrix:
+        sim_mat = ((-cl_kmed_sim.dist_mat + cl_kmed_sim.dist_mat.max()) / 
+                   cl_kmed_sim.dist_mat.max())
+        sp_cl = SpectralClustering(n_clusters=k, random_state=i, 
+                                affinity='precomputed').fit(sim_mat)
+        sim_results_ars[i, 2] = adjusted_rand_score(sim_clusters, sp_cl.labels_)
+        sim_results_vm[i, 2] = v_measure_score(sim_clusters, sp_cl.labels_)
+        sim_results_cost[i, 2] = cl_kmed_sim_tw.calculate_comparable_cost(k,
+                                                                          sp_cl.labels_)
+        ### Spectral clustering of simulated data :
         ### WITH time warping:
-        (k_clusters_umap_tw,
-         k_centroids_umap_tw,
-         k_warps_umap) = cl_kmed_sim_tw.fc_clustering(k, nb_rep=nb_cl_rep,
-                                                      disp_plot=False,
-                                                      method='umap')
-        sim_results_cost[i, 5] = cl_kmed_sim_tw.calculate_comparable_cost(k,
-                                                                          k_clusters_umap_tw)
-        sim_results_ars[i, 5] = adjusted_rand_score(sim_clusters, k_clusters_umap_tw)
-        sim_results_vm[i, 5] = v_measure_score(sim_clusters, k_clusters_umap_tw)
+        sim_mat_tw = ((-cl_kmed_sim_tw.dist_mat + cl_kmed_sim_tw.dist_mat.max()) / 
+                   cl_kmed_sim_tw.dist_mat.max())
+        sp_cl_tw = SpectralClustering(n_clusters=k, random_state=i, 
+                                affinity='precomputed').fit(sim_mat_tw)
+        sim_results_ars[i, 3] = adjusted_rand_score(sim_clusters, sp_cl_tw.labels_)
+        sim_results_vm[i, 3] = v_measure_score(sim_clusters, sp_cl_tw.labels_)
+        sim_results_cost[i, 3] = cl_kmed_sim_tw.calculate_comparable_cost(k,
+                                                                          sp_cl_tw.labels_)
+        ### K-medoids clustering of the DTW matrix (on means) :
+        ### WITH time warping:
+        (k_clusters_dtw,
+         k_centroids_dtw,
+         k_cost_tw) = cl_DTW.fc_clustering(k, nb_rep=nb_cl_rep, disp_plot=False, 
+                                           algorithm=alg)
+        sim_results_cost[i, 4] = cl_kmed_sim_tw.calculate_comparable_cost(k,
+                                                                          k_clusters_dtw)
+        sim_results_ars[i, 4] = adjusted_rand_score(sim_clusters, k_clusters_dtw)
+        sim_results_vm[i, 4] = v_measure_score(sim_clusters, k_clusters_dtw)
         
-    print(f'd2hat without TW: \n Adj. rand score: mean {np.mean(sim_results_ars[:, 0], axis=0)}, std {np.std(sim_results_ars[:, 0], axis=0)}')
+    print(f'K-medoids without TW: \n Adj. rand score: mean {np.mean(sim_results_ars[:, 0], axis=0)}, std {np.std(sim_results_ars[:, 0], axis=0)}')
     print(f'  V-measure score: mean {np.mean(sim_results_vm[:, 0], axis=0)}, std {np.std(sim_results_vm[:, 0], axis=0)}')
     print(f'  Cost (per time point): mean {np.mean(sim_results_cost[:, 0], axis=0)}, std {np.std(sim_results_cost[:, 0], axis=0)}')
     
-    print(f'd2hat with TW: \n Adj. rand score: mean {np.mean(sim_results_ars[:, 1], axis=0)}, std {np.std(sim_results_ars[:, 1], axis=0)}')
+    print(f'K-medoids with TW: \n Adj. rand score: mean {np.mean(sim_results_ars[:, 1], axis=0)}, std {np.std(sim_results_ars[:, 1], axis=0)}')
     print(f'  V-measure score: mean {np.mean(sim_results_vm[:, 1], axis=0)}, std {np.std(sim_results_vm[:, 1], axis=0)}')
     print(f'  Cost (per time point): mean {np.mean(sim_results_cost[:, 1], axis=0)}, std {np.std(sim_results_cost[:, 1], axis=0)}')
     
-    print(f'kmed SBM: \n Adj. rand score: mean {np.mean(sim_results_ars[:, 2], axis=0)}, std {np.std(sim_results_ars[:, 2], axis=0)}')
+    print(f'Spectral clustering without TW: \n Adj. rand score: mean {np.mean(sim_results_ars[:, 2], axis=0)}, std {np.std(sim_results_ars[:, 2], axis=0)}')
     print(f'  V-measure score: mean {np.mean(sim_results_vm[:, 2], axis=0)}, std {np.std(sim_results_vm[:, 2], axis=0)}')
     print(f'  Cost (per time point): mean {np.mean(sim_results_cost[:, 2], axis=0)}, std {np.std(sim_results_cost[:, 2], axis=0)}')
     
-    print(f'random SBM: \n Adj. rand score: mean {np.mean(sim_results_ars[:, 3], axis=0)}, std {np.std(sim_results_ars[:, 3], axis=0)}')
+    print(f'Spectral clustering with TW: \n Adj. rand score: mean {np.mean(sim_results_ars[:, 3], axis=0)}, std {np.std(sim_results_ars[:, 3], axis=0)}')
     print(f'  V-measure score: mean {np.mean(sim_results_vm[:, 3], axis=0)}, std {np.std(sim_results_vm[:, 3], axis=0)}')
     print(f'  Cost (per time point): mean {np.mean(sim_results_cost[:, 3], axis=0)}, std {np.std(sim_results_cost[:, 3], axis=0)}')
     
-    print(f'd2hat UMAP + k-means (no TW): \n Adj. rand score: mean {np.mean(sim_results_ars[:, 4], axis=0)}, std {np.std(sim_results_ars[:, 4], axis=0)}')
+    print(f'DTW: \n Adj. rand score: mean {np.mean(sim_results_ars[:, 4], axis=0)}, std {np.std(sim_results_ars[:, 4], axis=0)}')
     print(f'  V-measure score: mean {np.mean(sim_results_vm[:, 4], axis=0)}, std {np.std(sim_results_vm[:, 4], axis=0)}')
-    print(f'  Cost: mean {np.mean(sim_results_cost[:, 4], axis=0)}, std {np.std(sim_results_cost[:, 4], axis=0)}')
-    
-    print(f'd2hat UMAP + k-means (with TW): \n Adj. rand score: mean {np.mean(sim_results_ars[:, 5], axis=0)}, std {np.std(sim_results_ars[:, 5], axis=0)}')
-    print(f'  V-measure score: mean {np.mean(sim_results_vm[:, 5], axis=0)}, std {np.std(sim_results_vm[:, 5], axis=0)}')
-    print(f'  Cost: mean {np.mean(sim_results_cost[:, 5], axis=0)}, std {np.std(sim_results_cost[:, 5], axis=0)}')
+    print(f'  Cost (per time point): mean {np.mean(sim_results_cost[:, 4], axis=0)}, std {np.std(sim_results_cost[:, 4], axis=0)}')
     
     return sim_results_cost, sim_results_ars, sim_results_vm
 
@@ -280,7 +261,7 @@ nb_var = 300
 time_points = np.array([ 0.5,  3 ,  6 ,  9 ,  12 ,  15 , 18 , 21. ])
 nb_time_p = len(time_points)
 
-######################### Time Warping & SBM Study 2 ##########################
+######################### Time Warping Study ##########################
 k = 4
 sim_clusters = random_gen.choice(range(k), nb_var)
 random_gen.shuffle(sim_clusters)
@@ -312,13 +293,10 @@ sim_var = (np.repeat(np.abs(random_gen.randn(nb_var)), nb_time_p)
            .reshape((nb_var, nb_time_p)).T)
 sim_cov[:, np.arange(nb_var), np.arange(nb_var)] = sim_var
 
-print('Study 2: the effects of alignment, SBM and UMAP-based clustering.')
+print('Study 2: the effects of alignment.')
 nb_sim_rep = 10
 (sim_results_cost,
  sim_results_ars,
  sim_results_vm) = perform_simulation_study(k, sim_clusters, sim_means,
                                             sim_cov, time_points, nb_sim_rep,
                                             random_gen=random_gen)
-
-
-

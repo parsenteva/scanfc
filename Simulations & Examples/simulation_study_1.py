@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from scanofc import Clustering
 from sklearn.metrics.cluster import v_measure_score, adjusted_rand_score
-mpl.style.use('seaborn')
+mpl.style.use('seaborn-v0_8')
 mpl.rcParams['font.family'] = 'serif'
 
 
@@ -196,16 +196,16 @@ def perform_simulation_study(k, sim_clusters, sim_means, sim_cov, time_points,
     cl_kmed_sim = Clustering(means=sim_means, cov=sim_cov,
                              time_points=time_points, dist='d2hat',
                              random_gen=random_gen)
-    cl_kmeans_sim = Clustering(means=sim_means, cov=sim_cov,
+    cl_wass_sim = Clustering(means=sim_means, cov=sim_cov,
                                time_points=time_points, dist='wasserstein',
                                random_gen=random_gen)
     cl_hell_sim = Clustering(means=sim_means, cov=sim_cov,
                              time_points=time_points, dist='hellinger',
                              random_gen=random_gen)
 
-    sim_results_ars = np.zeros((nb_sim_rep, 4))
-    sim_results_vm = np.zeros((nb_sim_rep, 4))
-    sim_results_cost = np.zeros((nb_sim_rep, 4))
+    sim_results_ars = np.zeros((nb_sim_rep, 6))
+    sim_results_vm = np.zeros((nb_sim_rep, 6))
+    sim_results_cost = np.zeros((nb_sim_rep, 6))
 
     alg = 'k-means-like'
     for i in range(nb_sim_rep):
@@ -219,15 +219,16 @@ def perform_simulation_study(k, sim_clusters, sim_means, sim_cov, time_points,
                                                                        k_clusters)
         sim_results_ars[i, 0] = adjusted_rand_score(sim_clusters, k_clusters)
         sim_results_vm[i, 0] = v_measure_score(sim_clusters, k_clusters)
-        # K-means Wasserstein distance based clustering:
-        (k_clusters_w, k_bary_means,
-         k_bary_cov, k_cost_w) = cl_kmeans_sim.fc_clustering(k, nb_rep=nb_cl_rep,
-                                                             disp_plot=False,
-                                                             method='wass k-means')
-        sim_results_cost[i, 1] = cl_kmeans_sim.calculate_comparable_cost(
-            k, k_clusters_w)
-        sim_results_ars[i, 1] = adjusted_rand_score(sim_clusters, k_clusters_w)
-        sim_results_vm[i, 1] = v_measure_score(sim_clusters, k_clusters_w)
+        # K-medoids Wasserstein distance based clustering:
+        (k_clusters_w_med,
+         k_centroids_w_med,
+         k_cost_w_med) = cl_wass_sim.fc_clustering(k, nb_rep=nb_cl_rep,
+                                                     disp_plot=False, algorithm=alg)
+        sim_results_cost[i, 1] = cl_wass_sim.calculate_comparable_cost(k,
+                                                                         k_clusters_w_med)
+        sim_results_ars[i, 1] = adjusted_rand_score(sim_clusters, k_clusters_w_med)
+        sim_results_vm[i, 1] = v_measure_score(sim_clusters, k_clusters_w_med)
+        
         # K-medoid clustering of simulated data (Hellinger distance):
         (k_clusters_hell,
          k_centroids_hell,
@@ -236,19 +237,36 @@ def perform_simulation_study(k, sim_clusters, sim_means, sim_cov, time_points,
                                                   algorithm=alg)
         sim_results_cost[i, 2] = cl_hell_sim.calculate_comparable_cost(k,
                                                                        k_clusters_hell)
-        sim_results_ars[i, 2] = adjusted_rand_score(
-            sim_clusters, k_clusters_hell)
+        sim_results_ars[i, 2] = adjusted_rand_score(sim_clusters, k_clusters_hell)
         sim_results_vm[i, 2] = v_measure_score(sim_clusters, k_clusters_hell)
-        # Hierarchical clustering of simulated data:
-        (k_clusters_hier,
-         k_centroids_hier) = cl_kmed_sim.fc_clustering(k, nb_rep=nb_cl_rep,
-                                                       disp_plot=False,
-                                                       method='hierarchical')
+        # d2hat hierarchical clustering:
+        (k_clusters_hier_d,
+         k_centroids_hier_d) = cl_kmed_sim.fc_clustering(k, nb_rep=nb_cl_rep,
+                                                         disp_plot=False,
+                                                         method='hierarchical')
         sim_results_cost[i, 3] = cl_kmed_sim.calculate_comparable_cost(k,
-                                                                       k_clusters_hier)
-        sim_results_ars[i, 3] = adjusted_rand_score(
-            sim_clusters, k_clusters_hier)
-        sim_results_vm[i, 3] = v_measure_score(sim_clusters, k_clusters_hier)
+                                                                       k_clusters_hier_d)
+        sim_results_ars[i, 3] = adjusted_rand_score(sim_clusters, k_clusters_hier_d)
+        sim_results_vm[i, 3] = v_measure_score(sim_clusters, k_clusters_hier_d)
+        # Wasserstein hierarchical clustering:
+        (k_clusters_hier_w,
+         k_centroids_hier_w) = cl_wass_sim.fc_clustering(k, nb_rep=nb_cl_rep,
+                                                         disp_plot=False,
+                                                         method='hierarchical')
+        sim_results_cost[i, 4] = cl_wass_sim.calculate_comparable_cost(k,
+                                                                       k_clusters_hier_w)
+        sim_results_ars[i, 4] = adjusted_rand_score(sim_clusters, k_clusters_hier_w)
+        sim_results_vm[i, 4] = v_measure_score(sim_clusters, k_clusters_hier_w)
+        # Hellinger hierarchical clustering:
+        (k_clusters_hier_h,
+         k_centroids_hier_h) = cl_hell_sim.fc_clustering(k, nb_rep=nb_cl_rep,
+                                                         disp_plot=False,
+                                                         method='hierarchical')
+        sim_results_cost[i, 5] = cl_hell_sim.calculate_comparable_cost(k,
+                                                                       k_clusters_hier_h)
+        sim_results_ars[i, 5] = adjusted_rand_score(
+            sim_clusters, k_clusters_hier_h)
+        sim_results_vm[i, 5] = v_measure_score(sim_clusters, k_clusters_hier_h)
 
     print(
         f'd2hat k-medoids: \n Adj. rand score: mean {np.mean(sim_results_ars[:, 0], axis=0)}, std {np.std(sim_results_ars[:, 0], axis=0)}')
@@ -258,25 +276,40 @@ def perform_simulation_study(k, sim_clusters, sim_means, sim_cov, time_points,
         f'  Cost: mean {np.mean(sim_results_cost[:, 0], axis=0)}, std {np.std(sim_results_cost[:, 0], axis=0)}')
 
     print(
-        f'Wass k-means: \n Adj. rand score: mean {np.mean(sim_results_ars[:, 1], axis=0)}, std {np.std(sim_results_ars[:, 1], axis=0)}')
+        f'Wass k-medoids: \n Adj. rand score: mean {np.mean(sim_results_ars[:, 1], axis=0)}, std {np.std(sim_results_ars[:, 1], axis=0)}')
     print(
         f'  V-measure score: mean {np.mean(sim_results_vm[:, 1], axis=0)}, std {np.std(sim_results_vm[:, 1], axis=0)}')
     print(
         f'  Cost: mean {np.mean(sim_results_cost[:, 1], axis=0)}, std {np.std(sim_results_cost[:, 1], axis=0)}')
 
     print(
-        f'Hellinger: \n Adj. rand score: mean {np.mean(sim_results_ars[:, 2], axis=0)}, std {np.std(sim_results_ars[:, 2], axis=0)}')
+        f'Hellinger k-medoids: \n Adj. rand score: mean {np.mean(sim_results_ars[:, 2], axis=0)}, std {np.std(sim_results_ars[:, 2], axis=0)}')
     print(
         f'  V-measure score: mean {np.mean(sim_results_vm[:, 2], axis=0)}, std {np.std(sim_results_vm[:, 2], axis=0)}')
     print(
         f'  Cost: mean {np.mean(sim_results_cost[:, 2], axis=0)}, std {np.std(sim_results_cost[:, 2], axis=0)}')
 
     print(
-        f'Hierarchical: \n Adj. rand score: mean {np.mean(sim_results_ars[:, 3], axis=0)}, std {np.std(sim_results_ars[:, 3], axis=0)}')
+        f'd2hat hierarchical: \n Adj. rand score: mean {np.mean(sim_results_ars[:, 3], axis=0)}, std {np.std(sim_results_ars[:, 3], axis=0)}')
     print(
         f'  V-measure score: mean {np.mean(sim_results_vm[:, 3], axis=0)}, std {np.std(sim_results_vm[:, 3], axis=0)}')
     print(
         f'  Cost: mean {np.mean(sim_results_cost[:, 3], axis=0)}, std {np.std(sim_results_cost[:, 3], axis=0)}')
+    
+    print(
+        f'Wass hierarchical: \n Adj. rand score: mean {np.mean(sim_results_ars[:, 4], axis=0)}, std {np.std(sim_results_ars[:, 4], axis=0)}')
+    print(
+        f'  V-measure score: mean {np.mean(sim_results_vm[:, 4], axis=0)}, std {np.std(sim_results_vm[:, 4], axis=0)}')
+    print(
+        f'  Cost: mean {np.mean(sim_results_cost[:, 4], axis=0)}, std {np.std(sim_results_cost[:, 4], axis=0)}')
+    
+    print(
+        f'Hellinger hierarchical: \n Adj. rand score: mean {np.mean(sim_results_ars[:, 5], axis=0)}, std {np.std(sim_results_ars[:, 5], axis=0)}')
+    print(
+        f'  V-measure score: mean {np.mean(sim_results_vm[:, 5], axis=0)}, std {np.std(sim_results_vm[:, 5], axis=0)}')
+    print(
+        f'  Cost: mean {np.mean(sim_results_cost[:, 5], axis=0)}, std {np.std(sim_results_cost[:, 5], axis=0)}')
+    
 
     return sim_results_cost, sim_results_ars, sim_results_vm
 
@@ -323,7 +356,7 @@ sim_cov_0[:, np.arange(300), np.arange(300)] = sim_var_0
 nb_sim_rep = 10
 
 
-print('Study 1: d2hat k-medoids vs Wasserstein k-means')
+print('Study 1: d2hat vs Wasserstein vs Hellinger and k-medoids vs hierarchical')
 print('4 clusters')
 print('Independent case')
 (sim_0_results_cost,
@@ -510,7 +543,7 @@ vm_table = [np.round(np.mean(sim_0_results_vm, axis=0), 2),
             np.round(np.mean(sim_31_results_vm, axis=0), 2),
             np.round(np.mean(sim_32_results_vm, axis=0), 2)]
 
-fig, axs = plt.subplots(1, 2, figsize=(26, 10))
+fig, axs = plt.subplots(1, 2, figsize=(30, 10))
 pos_0 = axs[0].imshow(ars_table, aspect='auto', cmap='RdYlGn')
 pos_1 = axs[1].imshow(vm_table, aspect='auto', cmap='RdYlGn')
 
@@ -524,32 +557,43 @@ axs[0].axis('off')
 axs[0].grid(False)
 axs[0].text(0, -0.7, 'd2hat \n k-medoids',
             va='center', ha='center', fontsize=15)
-axs[0].text(1, -0.7, 'Wasserstein \n k-means',
+axs[0].text(1, -0.7, 'Wasserstein \n k-medoids',
             va='center', ha='center', fontsize=15)
 axs[0].text(2, -0.7, 'Hellinger \n k-medoids',
             va='center', ha='center', fontsize=15)
 axs[0].text(3, -0.7, 'd2hat \n hierarchical',
             va='center', ha='center', fontsize=15)
-axs[0].text(1.4, -1.2, 'ARI', fontsize=25)
-axs[0].text(5, 0, '4 clusters:\nIndependent', ha='center', fontsize=11)
-axs[0].text(5, 1.1, '2 clusters:\nIndependent', ha='center', fontsize=11)
-axs[0].text(5, 2.2, '2 clusters:\nBlock-dependent\n(low cov.)',
+axs[0].text(4, -0.7, 'Wasserstein \n hierarchical',
+            va='center', ha='center', fontsize=15)
+axs[0].text(5, -0.7, 'Hellinger \n hierarchical',
+            va='center', ha='center', fontsize=15)
+axs[0].text(2.25, -1.2, 'ARI', fontsize=25)
+middle_coord = 6.1
+axs[0].text(middle_coord, 0, '4 clusters:\nIndependent', ha='center', fontsize=11)
+axs[0].text(middle_coord, 1.1, '2 clusters:\nIndependent', ha='center', fontsize=11)
+axs[0].text(middle_coord, 2.2, '2 clusters:\nBlock-dependent\n(low cov.)',
             ha='center', fontsize=11)
-axs[0].text(5, 3.2, '2 clusters:\nBlock-dependent\n(high cov.)',
+axs[0].text(middle_coord, 3.2, '2 clusters:\nBlock-dependent\n(high cov.)',
             ha='center', fontsize=11)
-axs[0].text(5, 4.2, '2 clusters:\n +/- \n(low cov.)', ha='center', fontsize=11)
-axs[0].text(5, 5.2, '2 clusters:\n +/- \n(high cov.)',
+axs[0].text(middle_coord, 4.2, '2 clusters:\n +/- \n(low cov.)', ha='center', fontsize=11)
+axs[0].text(middle_coord, 5.2, '2 clusters:\n +/- \n(high cov.)',
             ha='center', fontsize=11)
 axs[1].axis('off')
 axs[1].grid(False)
 axs[1].text(0, -0.7, 'd2hat \n k-medoids',
             va='center', ha='center', fontsize=15)
-axs[1].text(1, -0.7, 'Wasserstein \n k-means',
+axs[1].text(1, -0.7, 'Wasserstein \n k-medoids',
             va='center', ha='center', fontsize=15)
 axs[1].text(2, -0.7, 'Hellinger \n k-medoids',
             va='center', ha='center', fontsize=15)
 axs[1].text(3, -0.7, 'd2hat \n hierarchical',
             va='center', ha='center', fontsize=15)
-axs[1].text(1.1, -1.2, 'V-measure', fontsize=25)
+axs[1].text(4, -0.7, 'Wasserstein \n hierarchical',
+            va='center', ha='center', fontsize=15)
+axs[1].text(5, -0.7, 'Hellinger \n hierarchical',
+            va='center', ha='center', fontsize=15)
+
+axs[1].text(1.75, -1.2, 'V-measure', fontsize=25)
 fig.colorbar(pos_0, ax=axs)
+fig.savefig("sim_cc_rev.pdf")
 plt.show()
