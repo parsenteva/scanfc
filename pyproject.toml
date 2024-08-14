@@ -19,5 +19,9 @@ maintainers = [
   {name = "Polina Arsenteva", email = "polina.arsent@gmail.com" }
 ]
 dependencies = [
-  "matplotlib", "numpy", "scipy", "seaborn", "scikit_learn"
+  "matplotlib >= 3.5.1", 
+  "numpy >= 1.21.4",
+  "scipy >= 1.8.1",
+  "seaborn >= 0.11.2", 
+  "scikit_learn >= 1.1.2"
 ]
