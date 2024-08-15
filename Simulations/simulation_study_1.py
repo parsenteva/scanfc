@@ -9,97 +9,9 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from scanfc.clustering import FoldChanges, Clustering
 from sklearn.metrics.cluster import v_measure_score, adjusted_rand_score
+from simulation_functions import simulate_cluster_means_1
 mpl.style.use('seaborn-v0_8')
 mpl.rcParams['font.family'] = 'serif'
-
-
-def simulate_cluster_means(size, time_points, func, random_gen=None):
-    """
-    Simulates means for a given cluster for the first series of simulation
-    studies.
-
-    Parameters
-    ----------
-    size : int
-        Number of members in the cluster.
-    time_points : array-like
-        1D array-like containing data with `float` type, representing time
-        points for the simulated dataset.
-    func : int (1, 2, 3 or 4)
-        Indicates a simulation model for cluster means, different models
-        generate different clusters. Each model is based on a polynomial with
-        random coefficients.
-    random_gen : RandomState instance or None, optional
-        Random number generator, used to reproduce results. If None (default),
-        the generator is the RandomState instance used by `np.random`.
-        If RandomState instance, random_gen is the actual random
-        number generator.
-
-    Returns
-    -------
-    sim_clust_means : ndarray
-        2D array of shape (len(time_points), size) containing data
-        with `float` type, representing fold changes' means for each simulated
-        entity and each time point.
-
-    """
-    nb_time_p = len(time_points)
-    time_rep = np.repeat(time_points, size).reshape(nb_time_p, size)
-    if random_gen is None:
-        random_gen = np.random
-    if func == 1:
-        # Model with a 2-degree polynomial
-        def func_1(x, a, b, c): return (a*x**2/2 + b * x + c)
-        a = np.repeat(0.005*random_gen.randn(size)+0.05,
-                      nb_time_p).reshape(size, nb_time_p).T
-        b = np.repeat(2 * a[0, :] * random_gen.randn(size) -
-                      10 * a[0, :], nb_time_p).reshape(size, nb_time_p).T
-        c = np.repeat(random_gen.randn(size) + 2,
-                      nb_time_p).reshape(size, nb_time_p).T
-        sim_clust_means = func_1(time_rep, a, b, c)
-    if func in (2, 3):
-        # Models with 3-degree polynomials (increasing and decreasing)
-        def func_2(x, a, r1, r2, c, d): return (a*x**3/3 - x**2 * a * (r1 + r2)/2
-                                                + x * a * r1 * r2 + c * x + d)
-        r1 = np.repeat(random_gen.randn(size) + 5,
-                       nb_time_p).reshape(size, nb_time_p).T
-        r2 = np.repeat(random_gen.randn(size) + 15,
-                       nb_time_p).reshape(size, nb_time_p).T
-        if func == 3:
-            a = np.repeat(0.001 * random_gen.randn(size) + 0.01,
-                          nb_time_p).reshape(size, nb_time_p).T
-            d = np.repeat(random_gen.randn(size) + 3,
-                          nb_time_p).reshape(size, nb_time_p).T
-        else:
-            a = np.repeat(0.001 * random_gen.randn(size) - 0.01,
-                          nb_time_p).reshape(size, nb_time_p).T
-            d = np.repeat(random_gen.randn(size) + 2,
-                          nb_time_p).reshape(size, nb_time_p).T
-        c = np.repeat(2 * a[0, :] * random_gen.randn(size) +
-                      6 * a[0, :], nb_time_p).reshape(size, nb_time_p).T
-        sim_clust_means = func_2(time_rep, a, r1, r2, c, d)
-    if func == 4:
-        # Model with a 4-degree polynomial
-        def func_4(x, a, r1, r2, r3, b, c): return (a * (x**4/4 + x**3 * (-r1-r2-r3)/3
-                                                         + x**2 *
-                                                         (r1 * r2 + r3 *
-                                                          (r1 + r2))/2
-                                                         - x * r1 * r2 * r3) + b * x + c)
-        r1 = np.repeat(0.2*random_gen.randn(size)+2,
-                       nb_time_p).reshape(size, nb_time_p).T
-        r2 = np.repeat(0.5*random_gen.randn(size)+10,
-                       nb_time_p).reshape(size, nb_time_p).T
-        r3 = np.repeat(0.2*random_gen.randn(size)+18,
-                       nb_time_p).reshape(size, nb_time_p).T
-        a = np.repeat(5e-5*random_gen.randn(size)+5e-3,
-                      nb_time_p).reshape(size, nb_time_p).T
-        #b = np.repeat(0.05*random_gen.randn(size), nb_time_p).reshape(size, nb_time_p).T
-        b = np.repeat(random_gen.uniform(-0.05, 0.05, size),
-                      nb_time_p).reshape(size, nb_time_p).T
-        c = np.repeat(0.5*random_gen.randn(size)+2,
-                      nb_time_p).reshape(size, nb_time_p).T
-        sim_clust_means = func_4(time_rep, a, r1, r2, r3, b, c)
-    return sim_clust_means
 
 
 def compute_big_sigma(fc_cov):
@@ -193,7 +105,7 @@ def perform_simulation_study(k, sim_clusters, sim_means, sim_cov, time_points,
         repetition and each approach.
 
     """
-    sim_fc  = FoldChanges(means=sim_means, cov=sim_cov, time_points=time_points)
+    sim_fc = FoldChanges(means=sim_means, cov=sim_cov, time_points=time_points)
     cl_kmed_sim = Clustering(fold_changes=sim_fc, dist='d2hat',
                              random_gen=random_gen)
     cl_wass_sim = Clustering(fold_changes=sim_fc, dist='wasserstein',
@@ -334,7 +246,7 @@ sim_means_0 = np.zeros((nb_time_p, nb_var))
 fig, axs = plt.subplots(1, k, figsize=(20, 8), sharey=False)
 for i, cl in enumerate(range(k)):
     cluster_i = np.argwhere(sim_clusters_0 == cl)
-    sim_means_plot_0 = simulate_cluster_means(cluster_i.size, plot_time_points,
+    sim_means_plot_0 = simulate_cluster_means_1(cluster_i.size, plot_time_points,
                                               cl+1, random_gen=random_gen)
     axs[i].plot(plot_time_points, sim_means_plot_0)
     sim_means_0[:, np.squeeze(cluster_i)] = sim_means_plot_0[time_p_ind, :]
@@ -373,7 +285,7 @@ sim_means = np.zeros((nb_time_p, nb_var))
 fig, axs = plt.subplots(1, k, figsize=(20, 8), sharey=False)
 for i, cl in enumerate(range(k)):
     cluster_i = np.argwhere(sim_clusters == cl)
-    sim_means_plot = simulate_cluster_means(cluster_i.size, plot_time_points,
+    sim_means_plot = simulate_cluster_means_1(cluster_i.size, plot_time_points,
                                             cl+1, random_gen=random_gen)
     axs[i].plot(plot_time_points, sim_means_plot)
     sim_means[:, np.squeeze(cluster_i)] = sim_means_plot[time_p_ind, :]

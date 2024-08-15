@@ -8,90 +8,12 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from scanfc.clustering import FoldChanges, Clustering
 from sklearn.cluster import SpectralClustering
+from simulation_functions import simulate_cluster_means_2
 from dtaidistance import dtw
 from sklearn.metrics.cluster import v_measure_score, adjusted_rand_score
 mpl.style.use('seaborn-v0_8')
 mpl.rcParams['font.family'] = 'serif'
 
-def simulate_cluster_means(size, time_points, func, random_gen=None):
-    """
-    Simulates means for a given cluster for the second series of simulation
-    studies (with horizontal shifts).
-
-    Parameters
-    ----------
-    size : int
-        Number of members in the cluster.
-    time_points : array-like
-        1D array-like containing data with `float` type, representing time
-        points for the simulated dataset.
-    func : int (1, 2, 3 or 4)
-        Indicates a simulation model for cluster means, different models
-        generate different clusters. Each model is based on a polynomial
-        (except 4 which is sine-based) with random coefficients.
-    random_gen : RandomState instance or None, optional
-        Random number generator, used to reproduce results. If None (default),
-        the generator is the RandomState instance used by `np.random`.
-        If RandomState instance, random_gen is the actual random
-        number generator.
-
-    Returns
-    -------
-    sim_clust_means_unaligned : ndarray
-        2D array of shape (len(time_points), size) containing data
-        with `float` type, representing unaligned fold changes' means for each
-        simulated entity and each time point.
-    sim_clust_means_aligned : ndarray
-        2D array of shape (len(time_points), size) containing data
-        with `float` type, representing aligned fold changes' means for each
-        simulated entity and each time point.
-
-    """
-    nb_time_p = len(time_points)
-    time_rep = np.repeat(time_points, size).reshape(nb_time_p, size)
-    if random_gen is None:
-        random_gen = np.random
-    if func==1:
-        # Model with a 2-degree polynomial
-        func_1 = lambda x, a, b, c, s: (a * (x - s) ** 2/2 + b * (x - s) + c)
-        a = np.repeat(0.002*random_gen.randn(size)+0.05, nb_time_p).reshape(size, nb_time_p).T
-        b = np.repeat(a[0,:] * random_gen.randn(size) - 11 * a[0,:], nb_time_p).reshape(size, nb_time_p).T
-        c = np.repeat(0.5 * random_gen.randn(size) + 2, nb_time_p).reshape(size, nb_time_p).T
-        w = 10
-        s = random_gen.uniform(-w, w, size)
-        sim_clust_means_unaligned = func_1(time_rep, a, b, c, s)
-        sim_clust_means_aligned = func_1(time_rep, a, b, c, np.zeros(size))
-    if func in (2, 3):
-        # Models with 3-degree polynomials (increasing and decreasing)
-        func_2 = lambda x, a, r1, r2, c, d, s: (a * (x - s) ** 3/3
-                                                - (x - s) ** 2 * a * (r1 + r2)/2
-                                                + (x - s) * a * r1 * r2
-                                                + c * (x - s) + d)
-        r1 = np.repeat(random_gen.randn(size) + 8, nb_time_p).reshape(size, nb_time_p).T
-        r2 = np.repeat(random_gen.randn(size) + 12, nb_time_p).reshape(size, nb_time_p).T
-        if func==3:
-            a = np.repeat(1e-5 * random_gen.randn(size) + 0.003, nb_time_p).reshape(size, nb_time_p).T
-            d = np.repeat(0.5*random_gen.randn(size) + 2, nb_time_p).reshape(size, nb_time_p).T
-        else:
-            a = np.repeat(1e-5 * random_gen.randn(size) - 0.003, nb_time_p).reshape(size, nb_time_p).T
-            d = np.repeat(0.5*random_gen.randn(size) + 3, nb_time_p).reshape(size, nb_time_p).T
-        c = np.repeat(2 * a[0,:] * random_gen.randn(size) + 6 * a[0,:], nb_time_p).reshape(size, nb_time_p).T
-        w = 10
-        s = random_gen.uniform(-w, w, size)
-        sim_clust_means_unaligned = func_2(time_rep, a, r1, r2, c, d, s)
-        sim_clust_means_aligned = func_2(time_rep, a, r1, r2, c, d, np.zeros(size))
-    if func==4:
-        # Model with a sine-based function
-        func_4 = lambda x, a, b, c, s: (a * np.sin(b* (x-s)) + c)
-        w = 7
-        s = random_gen.uniform(-w, w, size)
-        a = np.abs(np.repeat(random_gen.randn(size)+2, nb_time_p).reshape(size, nb_time_p).T)
-        b = np.repeat(random_gen.uniform(0.3, 0.5, size), nb_time_p).reshape(size, nb_time_p).T
-        c = np.repeat(0.5*random_gen.randn(size) + 2, nb_time_p).reshape(size, nb_time_p).T
-        sim_clust_means_unaligned = func_4(time_rep, a, b, c, s)
-        sim_clust_means_aligned = func_4(time_rep, a, b, c, np.zeros(size))
-    return sim_clust_means_unaligned, sim_clust_means_aligned
-    
     
 def perform_simulation_study(k, sim_clusters, sim_means, sim_cov, time_points,
                              nb_sim_rep, random_gen=None, nb_cl_rep=50,
@@ -160,7 +82,7 @@ def perform_simulation_study(k, sim_clusters, sim_means, sim_cov, time_points,
         repetition and each approach.
 
     """
-    sim_fc  = FoldChanges(means=sim_means, cov=sim_cov, time_points=time_points)
+    sim_fc = FoldChanges(means=sim_means, cov=sim_cov, time_points=time_points)
     cl_kmed_sim = Clustering(fold_changes=sim_fc, dist='d2hat',
                              random_gen=random_gen)
     cl_kmed_sim_tw = Clustering(fold_changes=sim_fc, dist='d2hat',
@@ -275,7 +197,7 @@ fig, axs = plt.subplots(2, k, figsize=(20, 16), sharey=False)
 for i, cl in enumerate(range(k)):
     cluster_i = np.argwhere(sim_clusters==cl)
     (sim_means_plot_ua,
-     sim_means_plot_a) = simulate_cluster_means(cluster_i.size,
+     sim_means_plot_a) = simulate_cluster_means_2(cluster_i.size,
                                                 plot_time_points, cl+1,
                                                 random_gen=random_gen)
     axs[0][i].plot(plot_time_points, sim_means_plot_ua)
