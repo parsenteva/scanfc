@@ -582,11 +582,14 @@ class FoldChanges():
 
 class Clustering():
     """
-    A class containing tools for clustering fold changes, inherits from
-    FoldChanges class.
+    A class containing tools for clustering fold changes.
 
     Attributes
     ----------
+    fold_changes : FoldChanges instance or None
+        None if dist_mat is given by the user for clustering. Otherwise, is
+        equal to the corresponding parameter, which has to be non_none, and
+        corresponds to the fold changes considered for clustering.
     dist : str
         Distance chosen for clustering, 'd2hat' by default (L2 distance between
         random estimators), can also be 'wasserstein' (Wasserstein distance)
@@ -636,16 +639,12 @@ class Clustering():
     Methods
     -------
     init_centroids(k)
-        Initializes centroids (medoids pr barycenters) for k clusters.
-    assign_clusters(centroids, method='k-medoids', wass_dist_mat=None)
+        Initializes centroids (medoids) for k clusters.
+    assign_clusters(centroids)
         Assigns all fold changes to one of the k clusters based on their
-        distances to centroids (medoids or barycenters).
+        distances to centroids (medoids).
     update_centroids(k, clusters, old_centroids, algorithm='k-means-like')
         Recalculates centroids based on the current cluster configuration.
-    compute_barycenter(k, clusters, cov0, precision=1e-5)
-        Calculates barycenters with respect to the Wasserstein distance for
-        k clusters by solving a fixed point problem iteratively until the
-        stopping criterion is satisfied.
     hierarchical_centroids(k, clusters)
         Chooses centroids among the fold changes in clusters after clustering.
         Used for non-centroid based clustering methods, such as hierarchical
@@ -654,6 +653,11 @@ class Clustering():
         Calculates total cost for all clusters, defined as the sum of distances
         between the fold changes and their centroids with respect to the
         distance matrix. Used in k-medoids clustering as a selection criterion.
+    calculate_comparable_cost(k, clusters)
+        Calculates total comparable cost for all clusters, defined as the sum
+        of distances between all fold change pairs in each cluster with respect
+        to the distance matrix. Used to compare clustering performed with
+        different methods (distance matrix should be the same).
     choose_k_clusters(k, method='k-medoids', algorithm='k-means-like',
                       verbose=0, plot_umap=True, nb_rep_umap=1,
                       umap_color_labels=None, plot_umap_labels=False)
@@ -668,8 +672,8 @@ class Clustering():
         multiple random clusters' initializations and choosing the attempt
         producing the best outcome (in the cases where random initializations
         are applicable).
-    plot_clusters(k, clusters, centroids, centroid_type='medoid', warps=None,
-                  nb_cols=4, nb_rows=None, figsize=None)
+    plot_clusters(k, clusters, centroids, warps=None, nb_cols=4, 
+                  nb_rows=None, figsize=None)
         Produces a figure with k subplots (or 2 figures if warps are provided),
         each containing plots of the fold changes' means in the corresponding
         cluster. In the case with time warping, produces a figure with
@@ -684,35 +688,19 @@ class Clustering():
         """
         Parameters
         ----------
-        data : ndarray or None
-            If not None, 4D array with the dimensions corresponding to:
-            1) nb of time points, 2) two experimental conditions
-            (dim 0: control, dim 1: case)), 3) replicates, 4) nb of entities.
-            If None (by default), then the fold changes are constructed based
-            on 'means' and 'cov'. Either 'data' or 'means' and 'cov' have to be
-            non-None, with 'data' having priority for the fold changes
-            construction.
-        means : ndarray or None
-            If not None, 2D array of shape (nb_time_pts, nb_var)
-            containing data with `float` type, representing fold changes' means
-            for each entity and each time point. If 'data' is None, used to
-            construct fold changes. Either 'data' or 'means' and 'cov' have to
-            be non-None.
-        cov : ndarray or None
-            If not None, 3D array of shape (nb_time_pts, nb_var, nb_var)
-            containing data with `float` type, representing fold changes'
-            nb_var x nb_var shaped covariance matrices for each time point.
-            Time-wise cross-covariances are assumes to be 0 due to experimental
-            design. In case of Hellinger distance, can also be 4-dimensional
-            (natural form): (nb_time_pts, nb_time_pts, nb_var, nb_var).
-            If 'data' is None, used to construct fold changes. Either 'data' or
-            'means' and 'cov' have to be non-None.
-        var_names : array-like or None
-            1D array-like containing data with `string` type, representing
-            names of the measured entities (ex. genes). The default is None.
-        time_points : array-like or None
-            1D array-like containing data with `float` type, representing time
-            points at which fold changes were measured. The default is None.
+        dist_mat : ndarray or None
+            Distance matrix, 2D array of shape with both dimensions
+            equal to the number of fold changes (entities). Either 'dist_mat' 
+            or 'fold_changes' has to be non-None, with 'dist_mat' having 
+            priority for the clustering, in which case the latter is performed
+            directly on the distance matrix.
+        optimal_warp_mat : ndarray or None
+            Optimal Warp matrix, 2D array with both dimensions equal to the
+            number of fold changes (entities). If provided, time_warp is set to
+            True and alignment is integrated into different parts of the pipeline.
+        fold_changes : FoldChanges instance or None
+            If provided, and if dist_mat is None, then dist_mat and other 
+            attributes are constructed based on the fold changes.
         dist : str
             Distance chosen for clustering, 'd2hat' by default (L2 distance
             between random estimators), can also be 'wasserstein'
@@ -840,10 +828,10 @@ class Clustering():
             centroids[i+1] = centroid
         return centroids
 
-    def assign_clusters(self, centroids, method='k-medoids', wass_dist_mat=None):
+    def assign_clusters(self, centroids):
         """
         Assigns all fold changes to one of the k clusters based on their
-        distances to centroids (medoids or barycenters).
+        distances to centroids (medoids).
 
         Parameters
         ----------
@@ -851,15 +839,6 @@ class Clustering():
             1D array of length k containing indices in range (0, nb_var) of
             the fold changes that act as current centroids (medoids). Used for
             clusters assignment only if method=='k-medoids'.
-        method : str, optional
-            Main approach to clustering, either 'k-medoids' (default, coupled
-            with d2hat distance or Hellinger distance) or 'wass k-means'
-            (Wasserstein k-means).
-        wass_dist_mat : ndarray, optional
-            2D array of shape (k, nb_var) containing distances between the
-            fold changes and the barycenters for all clusters. Used for
-            clusters assignment only if method=='wass k-means', otherwise
-            None (by default).
         Returns
         -------
         clusters : ndarray
@@ -868,17 +847,8 @@ class Clustering():
 
         """
         centroids_int = centroids.astype(int)
-        if method == 'k-medoids':
-            all_vs_centroids = np.copy(self.dist_mat[centroids_int, :])
-            clusters = np.argmin(all_vs_centroids, axis=0)
-        if method == 'wass k-means':
-            clusters = np.argmin(wass_dist_mat, axis=0)
-            nb_cl = wass_dist_mat.shape[0]
-            if len(np.unique(clusters)) < nb_cl:
-                clusters_to_fill = np.setdiff1d(range(nb_cl), clusters)
-                ind = self.random_gen.randint(0, len(clusters),
-                                              len(clusters_to_fill))
-                clusters[ind] = clusters_to_fill
+        all_vs_centroids = np.copy(self.dist_mat[centroids_int, :])
+        clusters = np.argmin(all_vs_centroids, axis=0)
         return clusters
 
     def update_centroids(self, k, clusters, old_centroids,
@@ -1076,7 +1046,6 @@ class Clustering():
             Main approach to clustering, options include:
                 - 'k-medoids' (default, coupled with d2hat distance or
                 Hellinger distance),
-                - 'wass k-means' (Wasserstein k-means),
                 - 'hierarchical' (hierarchical clustering based on
                 d2hat distance),
                 - 'umap' (UMAP projection of the d2hat distance matrix with
@@ -1113,31 +1082,18 @@ class Clustering():
             clusters : ndarray
                 1D array of length nb_var containing integers in range (0, k)
                 indicating clusters to which the fold changes are assigned.
-                Returned as the first element of the list in all cases.
             centroids : ndarray
                 1D array of length k containing indices in range (0, nb_var) of
                 the fold changes that have been chosen as centroids.
-                Returned as the second element of the list in all
-                cases except if method=='wass k-means'.
-            bary_means : ndarray
-                2D array of shape (nb_time_pts, k) representing final
-                barycenter means for all clusters. Returned as the second
-                element of the list if method=='wass k-means'.
-            bary_cov : ndarray
-                3D array of shape (nb_time_pts, nb_time_pts, k) representing
-                final barycenter covariance matrices for all clusters. Returned
-                as the third element of the list if method=='wass k-means'.
             total_cost : float
                 Value of the final total clustering cost with respect to the
                 metric associated with the chosen clustering method.
                 Returned as the last element of the list if method=='k-medoids'
-                or method=='wass k-means' (in other cases absent since the cost
-                isn't assessed during clustering and should be calculated
-                separately if needed).
+                (in other cases absent since the cost isn't assessed during 
+                clustering and should be calculated separately if needed).
 
         """
-        # Initialize clusters with k-means++ (used for d2hat k-medoids and
-        # Wasserstein k-means):
+        # Initialize clusters with k-means++ (used for d2hat k-medoids):
         centroids = self.init_centroids(k)
 
         # Iterate assign clusters & recalculate centroids until
@@ -1146,7 +1102,7 @@ class Clustering():
         i = 0
         if method == 'k-medoids':
             while not flag:
-                clusters = self.assign_clusters(centroids, method=method)
+                clusters = self.assign_clusters(centroids)
                 total_cost = self.calculate_total_cost(centroids, clusters)
                 if verbose > 0:
                     print('Iteration ', i)
@@ -1225,7 +1181,6 @@ class Clustering():
             Main approach to clustering, options include:
                 - 'k-medoids' (default, coupled with d2hat distance or
                 Hellinger distance),
-                - 'wass k-means' (Wasserstein k-means),
                 - 'hierarchical' (hierarchical clustering based on
                 d2hat distance),
                 - 'umap' (UMAP projection of the d2hat distance matrix with
@@ -1269,9 +1224,8 @@ class Clustering():
         container with integers, then returns a list of dictionaries, with
         keys corresponding to the considered numbers of clusters, and the
         values are the same as returned by choose_k_clusters.
-        If time_warp is True, an new element warps (or all_warps if
-        if different numbers of clusters are considered) is added to the list
-        for all distance matrix-based methods (i.e. all except 'wass k-means').
+        If time_warp is True, a new element 'warps' (or 'all_warps' if
+        if different numbers of clusters are considered) is added to the list.
         For a fixed number of clusters it is a 1D array of length nb_var
         containing integers in range (-max_warp_step, max_warp_step + 1)
         indicating fold changes' warps with respect to their
@@ -1447,8 +1401,8 @@ class Clustering():
                     return all_clusters, all_centroids, all_warps
                 return all_clusters, all_centroids
 
-    def plot_clusters(self, k, clusters, centroids, centroid_type='medoid',
-                      warps=None, nb_cols=4, nb_rows=None, figsize=None):
+    def plot_clusters(self, k, clusters, centroids, warps=None, nb_cols=4,
+                      nb_rows=None, figsize=None):
         """
         Produces a figure with k subplots (or 2 figures if warps are provided),
         each containing plots of the fold changes' means in the corresponding
@@ -1466,22 +1420,10 @@ class Clustering():
             If a dictionary, the keys are numbers of clusters considered, and
             for each such number the value is the latter array.
         centroids : ndarray or dictionary
-            If centroid_type=='medoid':
-                If ndarray, 1D array of length k containing indices in range
-                (0, nb_var) of the fold changes that act as centroids.
-                If a dictionary, the keys are numbers of clusters considered,
-                and for each such number the value is the latter array.
-            If centroid_type=='barycenter':
-                If ndarray, an array of barycenter means: 2D array of shape
-                (nb_time_pts, k) representing final barycenter means for all
-                clusters. If a dictionary, the keys are numbers of clusters
-                considered, and for each such number the value is the latter
-                array.
-        centroid_type : str, optional
-            The default is 'medoid', in which case the centroids are selected
-            among the fold changes (see centroids). Another option is
-            'barycenter', in this case the barycenters are plotted based on
-            their means.
+            If ndarray, 1D array of length k containing indices in range
+            (0, nb_var) of the fold changes that act as centroids.
+            If a dictionary, the keys are numbers of clusters considered,
+            and for each such number the value is the latter array.
         warps : ndarray or dictionary, optional
             If ndarray, 1D array of length nb_var containing integers in range
             (-max_warp_step, max_warp_step + 1) indicating fold changes' warps
@@ -1554,20 +1496,14 @@ class Clustering():
                     ax_j[col_to_plot].plot(time_points,
                                            self.fold_changes.means[:, cluster_j[f]],
                                            '-.', color='grey')
-            if centroid_type == 'medoid':  # the centroid is colored in red and thick
-                ax_j[col_to_plot].plot(time_points, self.fold_changes.means[:, centroids_k[j]],
-                                       '-', color='red', linewidth=2,
-                                       label='Centroid')
-                if self.fold_changes.var_names is not None:
-                    cluster_title = f'Centroid: {self.fold_changes.var_names[centroids_k[j]]}, {len(cluster_j)} members'
-                    ax_j[col_to_plot].set_title(cluster_title, color='red')
-                else:
-                    cluster_title = f'{len(cluster_j)} members'
-                    ax_j[col_to_plot].set_title(cluster_title, color='red')
-            if centroid_type == 'barycenter':
-                ax_j[col_to_plot].plot(time_points, centroids_k[:, j], '-',
-                                       color='red', linewidth=2,
-                                       label='Barycenter')
+            # the centroid is colored in red and thick
+            ax_j[col_to_plot].plot(time_points, self.fold_changes.means[:, centroids_k[j]],
+                                   '-', color='red', linewidth=2,
+                                   label='Centroid')
+            if self.fold_changes.var_names is not None:
+                cluster_title = f'Centroid: {self.fold_changes.var_names[centroids_k[j]]}, {len(cluster_j)} members'
+                ax_j[col_to_plot].set_title(cluster_title, color='red')
+            else:
                 cluster_title = f'{len(cluster_j)} members'
                 ax_j[col_to_plot].set_title(cluster_title, color='red')
             if warps is not None:  # adding a legend specifying warp types

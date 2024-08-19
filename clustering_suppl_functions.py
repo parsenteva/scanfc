@@ -6,7 +6,6 @@ Created on Mon Dec  6 18:45:16 2021
 @author: polina
 """
 import numpy as np
-import matplotlib as mpl
 from scanfc.clustering import FoldChanges
 
 def scale_data(data, fc_unscaled, sd_scale=True, norm_scale=True):

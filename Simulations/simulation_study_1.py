@@ -92,15 +92,15 @@ def perform_simulation_study(k, sim_clusters, sim_means, sim_cov, time_points,
     Returns
     -------
     sim_results_cost : ndarray
-        2D array of shape (nb_sim_rep, 4), where 4 correspond to the number of
+        2D array of shape (nb_sim_rep, 6), where 6 correspond to the number of
         considered approaches, containing the comparable cost values for each
         repetition and each approach.
     sim_results_ars : ndarray
-        2D array of shape (nb_sim_rep, 4), where 4 correspond to the number of
+        2D array of shape (nb_sim_rep, 6), where 6 correspond to the number of
         considered approaches, containing adjusted rand scores for each
         repetition and each approach.
     sim_results_vm : ndarray
-        2D array of shape (nb_sim_rep, 4), where 4 correspond to the number of
+        2D array of shape (nb_sim_rep, 6), where 6 correspond to the number of
         considered approaches, containing V-measure values for each
         repetition and each approach.
 

@@ -17,10 +17,9 @@ mpl.rcParams['font.family'] = 'serif'
     
 def perform_simulation_study(k, sim_clusters, sim_means, sim_cov, time_points,
                              nb_sim_rep, random_gen=None, nb_cl_rep=50,
-                             max_warp_step = 2, sparsity = 0.8, n_init_sbm=2):
+                             max_warp_step=2):
     """
-    Performs a simulation study focusing on alignment, SBM and UMAP-based 
-    clustering.
+    Performs a simulation study focusing on alignment.
 
     Parameters
     ----------
@@ -54,30 +53,23 @@ def perform_simulation_study(k, sim_clusters, sim_means, sim_cov, time_points,
         If RandomState instance, random_gen is the actual random
         number generator.
     nb_cl_rep : int, optional
-        Number of random initialization attempts (k-means clustering
-        initializations performed on the UMAP projection if
-        method=='umap'). The default is 50.
+        Number of random initialization attempts. The default is 50.
     max_warp_step : int, optional
         If max_warp_step=i>0, then the set of all considered warps is the
         set of all integers between -i and i. The default is 2.
-    sparsity : float, optional
-        Sparsity of the network determining the cutoff when defining the
-        binary adjacency matrix based on the weighted one. The default is 0.8.
-    n_init_sbm : int, optional
-        Number of initializations of SBM. The default is 2.
 
     Returns
     -------
     sim_results_cost : ndarray
-        2D array of shape (nb_sim_rep, 6), where 6 correspond to the number of
+        2D array of shape (nb_sim_rep, 5), where 5 correspond to the number of
         considered approaches, containing the comparable cost values for each
         repetition and each approach.
     sim_results_ars : ndarray
-        2D array of shape (nb_sim_rep, 6), where 6 correspond to the number of
+        2D array of shape (nb_sim_rep, 5), where 5 correspond to the number of
         considered approaches, containing adjusted rand scores for each
         repetition and each approach.
     sim_results_vm : ndarray
-        2D array of shape (nb_sim_rep, 6), where 6 correspond to the number of
+        2D array of shape (nb_sim_rep, 5), where 5 correspond to the number of
         considered approaches, containing V-measure values for each
         repetition and each approach.
 
