@@ -3,7 +3,7 @@ A Python library containing tools for inference of temporal fold changes from th
 
 To install the package run the following in Terminal:
 ```python
-pip install scanfc@git+https://github.com/parsenteva/scanofc@refactoring
+pip install scanfc@git+https://github.com/parsenteva/scanofc@main
 ```
 
 ## References
