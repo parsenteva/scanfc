@@ -1171,7 +1171,7 @@ class Clustering():
 
         Parameters
         ----------
-        k : int
+        k : int or list of ints
             Number of clusters.
         nb_rep : int, optional
             Number of random initialization attempts (k-means clustering
@@ -1330,7 +1330,6 @@ class Clustering():
                             axs[1].errorbar(k, mean_best_silhouette, std_best_silhouette,
                                             fmt='None', linestyle='', ecolor='grey',
                                             capsize=2.5, capthick=2, alpha=0.4)
-                            print(mean_best_silhouette)
                             axs[1].title.set_text(
                                 f'Silhouette score (mean  & std of {nb_best/nb_rep*100}% best results)')
                     else:

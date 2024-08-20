@@ -118,8 +118,8 @@ def perform_simulation_study(k, sim_clusters, sim_means, sim_cov, time_points,
         ### WITHOUT time warping:
         sim_mat = ((-cl_kmed_sim.dist_mat + cl_kmed_sim.dist_mat.max()) / 
                    cl_kmed_sim.dist_mat.max())
-        sp_cl = SpectralClustering(n_clusters=k, random_state=i, 
-                                affinity='precomputed').fit(sim_mat)
+        sp_cl = SpectralClustering(n_clusters=k, random_state=i,
+                                   n_init=nb_cl_rep, affinity='precomputed').fit(sim_mat)
         sim_results_ars[i, 2] = adjusted_rand_score(sim_clusters, sp_cl.labels_)
         sim_results_vm[i, 2] = v_measure_score(sim_clusters, sp_cl.labels_)
         sim_results_cost[i, 2] = cl_kmed_sim_tw.calculate_comparable_cost(k,
@@ -129,7 +129,8 @@ def perform_simulation_study(k, sim_clusters, sim_means, sim_cov, time_points,
         sim_mat_tw = ((-cl_kmed_sim_tw.dist_mat + cl_kmed_sim_tw.dist_mat.max()) / 
                    cl_kmed_sim_tw.dist_mat.max())
         sp_cl_tw = SpectralClustering(n_clusters=k, random_state=i, 
-                                affinity='precomputed').fit(sim_mat_tw)
+                                      n_init=nb_cl_rep, 
+                                      affinity='precomputed').fit(sim_mat_tw)
         sim_results_ars[i, 3] = adjusted_rand_score(sim_clusters, sp_cl_tw.labels_)
         sim_results_vm[i, 3] = v_measure_score(sim_clusters, sp_cl_tw.labels_)
         sim_results_cost[i, 3] = cl_kmed_sim_tw.calculate_comparable_cost(k,
