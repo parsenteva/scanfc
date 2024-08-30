@@ -15,7 +15,6 @@ from matplotlib import cm
 from matplotlib.lines import Line2D
 from sklearn.cluster import AgglomerativeClustering, KMeans
 from sklearn.metrics import silhouette_score
-mpl.rcParams['font.family'] = 'serif'
 import seaborn as sns
 for style in plt.style.available:
     if 'seaborn' in style:
@@ -1093,6 +1092,7 @@ class Clustering():
                 clustering and should be calculated separately if needed).
 
         """
+        mpl.rcParams['font.family'] = 'serif'
         # Initialize clusters with k-means++ (used for d2hat k-medoids):
         centroids = self.init_centroids(k)
 
@@ -1448,6 +1448,7 @@ class Clustering():
         assert self.fold_changes is not None, assert_str
         
         sns.set_style("darkgrid")
+        mpl.rcParams['font.family'] = 'serif'
         # If dictionaries are given, extract the elements corresponding to
         # the clustering with k clusters:
         if isinstance(clusters, dict):
@@ -1490,11 +1491,11 @@ class Clustering():
                     c = warp_colors[np.max(warps_k) + warp_type]
                     ax_j[col_to_plot].plot(time_points,
                                            self.fold_changes.means[:, cluster_j[f]],
-                                           '-.', color=c)
+                                           ':', color=c)
                 else:
                     ax_j[col_to_plot].plot(time_points,
                                            self.fold_changes.means[:, cluster_j[f]],
-                                           '-.', color='grey')
+                                           ':', color='grey')
             # the centroid is colored in red and thick
             ax_j[col_to_plot].plot(time_points, self.fold_changes.means[:, centroids_k[j]],
                                    '-', color='red', linewidth=2,
@@ -1507,7 +1508,7 @@ class Clustering():
                 ax_j[col_to_plot].set_title(cluster_title, color='red')
             if warps is not None:  # adding a legend specifying warp types
                 lines = [Line2D([0], [0], color=c, linewidth=1,
-                                linestyle='-') for c in warp_colors]
+                                linestyle=':') for c in warp_colors]
                 labels = ['' for i in range(len(np.unique(warps_k)))]
                 warps_cluster_j = warps_k[cluster_j]
                 perc_id = round((np.count_nonzero(warps_cluster_j == 0)-1)*100
@@ -1556,7 +1557,7 @@ class Clustering():
                     ax_j[col_to_plot].plot(time_points[plot_range],
                                            self.fold_changes.means[warped_range,
                                                       cluster_j[f]],
-                                           '-.', color=c)
+                                           ':', color=c)
                 ax_j[col_to_plot].plot(time_points, self.fold_changes.means[:, centroids_k[j]],
                                        '-', color='red', linewidth=2, label='Centroid')
                 if self.fold_changes.var_names is not None:
@@ -1564,7 +1565,7 @@ class Clustering():
                     ax_j[col_to_plot].set_title(cluster_title, color='red')
                 # Adding a legend specifying warp types
                 lines = [Line2D([0], [0], color=c, linewidth=1,
-                                linestyle='-') for c in warp_colors]
+                                linestyle=':') for c in warp_colors]
                 labels = ['' for i in range(len(np.unique(warps_k)))]
                 warps_cluster_j = warps_k[cluster_j]
                 perc_id = round((np.count_nonzero(warps_cluster_j == 0)-1)

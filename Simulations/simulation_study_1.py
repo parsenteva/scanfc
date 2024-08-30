@@ -453,7 +453,7 @@ vm_table = [np.round(np.mean(sim_0_results_vm, axis=0), 2),
             np.round(np.mean(sim_31_results_vm, axis=0), 2),
             np.round(np.mean(sim_32_results_vm, axis=0), 2)]
 
-fig, axs = plt.subplots(1, 2, figsize=(30, 10))
+fig, axs = plt.subplots(1, 2, figsize=(30, 7))
 pos_0 = axs[0].imshow(ars_table, aspect='auto', cmap='RdYlGn')
 pos_1 = axs[1].imshow(vm_table, aspect='auto', cmap='RdYlGn')
 
@@ -477,17 +477,17 @@ axs[0].text(4, -0.7, 'Wasserstein \n hierarchical',
             va='center', ha='center', fontsize=15)
 axs[0].text(5, -0.7, 'Hellinger \n hierarchical',
             va='center', ha='center', fontsize=15)
-axs[0].text(2.25, -1.2, 'ARI', fontsize=25)
+axs[0].text(2.25, -1.1, 'ARI', fontsize=25)
 middle_coord = 6.1
-axs[0].text(middle_coord, 0, '4 clusters:\nIndependent', ha='center', fontsize=11)
-axs[0].text(middle_coord, 1.1, '2 clusters:\nIndependent', ha='center', fontsize=11)
+axs[0].text(middle_coord, 0, '4 clusters:\nIndependent', ha='center', fontsize=13)
+axs[0].text(middle_coord, 1.1, '2 clusters:\nIndependent', ha='center', fontsize=13)
 axs[0].text(middle_coord, 2.2, '2 clusters:\nBlock-dependent\n(low cov.)',
-            ha='center', fontsize=11)
+            ha='center', fontsize=13)
 axs[0].text(middle_coord, 3.2, '2 clusters:\nBlock-dependent\n(high cov.)',
-            ha='center', fontsize=11)
-axs[0].text(middle_coord, 4.2, '2 clusters:\n +/- \n(low cov.)', ha='center', fontsize=11)
+            ha='center', fontsize=13)
+axs[0].text(middle_coord, 4.2, '2 clusters:\n +/- \n(low cov.)', ha='center', fontsize=13)
 axs[0].text(middle_coord, 5.2, '2 clusters:\n +/- \n(high cov.)',
-            ha='center', fontsize=11)
+            ha='center', fontsize=13)
 axs[1].axis('off')
 axs[1].grid(False)
 axs[1].text(0, -0.7, 'd2hat \n k-medoids',
@@ -503,7 +503,7 @@ axs[1].text(4, -0.7, 'Wasserstein \n hierarchical',
 axs[1].text(5, -0.7, 'Hellinger \n hierarchical',
             va='center', ha='center', fontsize=15)
 
-axs[1].text(1.75, -1.2, 'V-measure', fontsize=25)
-fig.colorbar(pos_0, ax=axs)
+axs[1].text(1.75, -1.1, 'V-measure', fontsize=25)
+fig.colorbar(pos_0, ax=axs, anchor=(-0.25, 0.5))
 fig.savefig("sim_cc_rev.pdf")
 plt.show()
