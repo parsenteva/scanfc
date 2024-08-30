@@ -452,16 +452,18 @@ vm_table = [np.round(np.mean(sim_0_results_vm, axis=0), 2),
             np.round(np.mean(sim_22_results_vm, axis=0), 2),
             np.round(np.mean(sim_31_results_vm, axis=0), 2),
             np.round(np.mean(sim_32_results_vm, axis=0), 2)]
-
+cmap = 'Greens'
 fig, axs = plt.subplots(1, 2, figsize=(30, 7))
-pos_0 = axs[0].imshow(ars_table, aspect='auto', cmap='RdYlGn')
-pos_1 = axs[1].imshow(vm_table, aspect='auto', cmap='RdYlGn')
+pos_0 = axs[0].imshow(ars_table, aspect='auto', cmap=cmap)
+pos_1 = axs[1].imshow(vm_table, aspect='auto', cmap=cmap)
 
 # add the values
 for (i, j), value in np.ndenumerate(ars_table):
-    axs[0].text(j, i, "%.3f" % value, va='center', ha='center', fontsize=20)
+    c = 'white' if value >=0.6 else 'black'
+    axs[0].text(j, i, "%.3f" % value, va='center', ha='center', fontsize=20, color=c)
 for (i, j), value in np.ndenumerate(vm_table):
-    axs[1].text(j, i, "%.3f" % value, va='center', ha='center', fontsize=20)
+    c = 'white' if value >=0.6 else 'black'
+    axs[1].text(j, i, "%.3f" % value, va='center', ha='center', fontsize=20, color=c)
 
 axs[0].axis('off')
 axs[0].grid(False)
