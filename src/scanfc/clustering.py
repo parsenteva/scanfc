@@ -1469,9 +1469,9 @@ class Clustering():
             else:
                 warps_k = warps.copy()
             # Each warp type is displayed with a different color:
-            cmap = cm.get_cmap('cubehelix')
+            cmap = cm.get_cmap('magma')
             warp_colors = cmap(np.linspace(
-                0.25, 0.75, len(np.unique(warps_k))))
+                0.1, 0.6, len(np.unique(warps_k))))
         if figsize is None:
             figsize = (15, 6 * nb_rows)
         fig = plt.figure(figsize=figsize)
