@@ -203,7 +203,7 @@ class FoldChanges():
                               np.linalg.inv(sigma_mean.transpose((2, 0, 1))))
             exp_term = (-1/8) * np.einsum('ij,ji->i', prod1, mu_diff)
             distances = 1 - det_term * np.exp(exp_term)
-        else:
+        if dist == 'd2hat':
             norm_means = np.sum(mu_diff**2, axis=0)
             sigma1 = self.cov[:, index_pairs[:, 0], index_pairs[:, 0]]
             sigma2 = self.cov[:, index_pairs[:, 1], index_pairs[:, 1]]
@@ -215,6 +215,9 @@ class FoldChanges():
                 penalty = (pen_param * np.sign(product).sum(axis=0)
                            / self.nb_time_pts)
                 distances -= penalty - penalty.max()
+        else:
+            error_message = 'Possible values for dist: s2hat, hellinger and Wasserstein'
+            raise NotImplementedError(error_message)
         return index_pairs, distances
 
     def compute_fc_norms(self, dist='d2hat'):
@@ -1469,7 +1472,7 @@ class Clustering():
             else:
                 warps_k = warps.copy()
             # Each warp type is displayed with a different color:
-            cmap = cm.get_cmap('magma')
+            cmap = cm.get_cmap('cubehelix')
             warp_colors = cmap(np.linspace(
                 0.1, 0.6, len(np.unique(warps_k))))
         if figsize is None:
@@ -1507,7 +1510,7 @@ class Clustering():
                 cluster_title = f'{len(cluster_j)} members'
                 ax_j[col_to_plot].set_title(cluster_title, color='red')
             if warps is not None:  # adding a legend specifying warp types
-                lines = [Line2D([0], [0], color=c, linewidth=1,
+                lines = [Line2D([0], [0], color=c, linewidth=2,
                                 linestyle=':') for c in warp_colors]
                 labels = ['' for i in range(len(np.unique(warps_k)))]
                 warps_cluster_j = warps_k[cluster_j]
@@ -1532,6 +1535,7 @@ class Clustering():
         if warps is not None:
             plt.suptitle('Unwarped fold changes', fontsize=20)
         plt.tight_layout()
+        plt.savefig('1.pdf')
         plt.show()
 
         # Second part is for time warping only: shows post-warping clusters
@@ -1564,7 +1568,7 @@ class Clustering():
                     cluster_title = f'Centroid: {self.fold_changes.var_names[centroids_k[j]]}, {len(cluster_j)} members'
                     ax_j[col_to_plot].set_title(cluster_title, color='red')
                 # Adding a legend specifying warp types
-                lines = [Line2D([0], [0], color=c, linewidth=1,
+                lines = [Line2D([0], [0], color=c, linewidth=2,
                                 linestyle=':') for c in warp_colors]
                 labels = ['' for i in range(len(np.unique(warps_k)))]
                 warps_cluster_j = warps_k[cluster_j]
@@ -1588,5 +1592,6 @@ class Clustering():
                                           linestyle='--', color='k')
             plt.suptitle('Warped fold changes', fontsize=20)
             plt.tight_layout()
+            plt.savefig('2.pdf')
             plt.show()
 

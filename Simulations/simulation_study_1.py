@@ -277,6 +277,9 @@ print('Independent case')
 
 ########################## Simulation of 2 clusters ###########################
 k = 2
+rand_seed = 390
+random_gen = np.random.RandomState(rand_seed)
+
 sim_clusters = np.concatenate((np.zeros((nb_var//2)), np.ones((nb_var//2))))
 random_gen.shuffle(sim_clusters)
 
@@ -453,7 +456,7 @@ vm_table = [np.round(np.mean(sim_0_results_vm, axis=0), 2),
             np.round(np.mean(sim_31_results_vm, axis=0), 2),
             np.round(np.mean(sim_32_results_vm, axis=0), 2)]
 cmap = 'Greens'
-fig, axs = plt.subplots(1, 2, figsize=(30, 7))
+fig, axs = plt.subplots(1, 2, figsize=(30, 6))
 pos_0 = axs[0].imshow(ars_table, aspect='auto', cmap=cmap)
 pos_1 = axs[1].imshow(vm_table, aspect='auto', cmap=cmap)
 
@@ -467,45 +470,45 @@ for (i, j), value in np.ndenumerate(vm_table):
 
 axs[0].axis('off')
 axs[0].grid(False)
-axs[0].text(0, -0.7, 'd2hat \n k-medoids',
+axs[0].text(0, -0.8, 'd2hat \n k-medoids',
             va='center', ha='center', fontsize=15)
-axs[0].text(1, -0.7, 'Wasserstein \n k-medoids',
+axs[0].text(1, -0.8, 'Wasserstein \n k-medoids',
             va='center', ha='center', fontsize=15)
-axs[0].text(2, -0.7, 'Hellinger \n k-medoids',
+axs[0].text(2, -0.8, 'Hellinger \n k-medoids',
             va='center', ha='center', fontsize=15)
-axs[0].text(3, -0.7, 'd2hat \n hierarchical',
+axs[0].text(3, -0.8, 'd2hat \n hierarchical',
             va='center', ha='center', fontsize=15)
-axs[0].text(4, -0.7, 'Wasserstein \n hierarchical',
+axs[0].text(4, -0.8, 'Wasserstein \n hierarchical',
             va='center', ha='center', fontsize=15)
-axs[0].text(5, -0.7, 'Hellinger \n hierarchical',
+axs[0].text(5, -0.8, 'Hellinger \n hierarchical',
             va='center', ha='center', fontsize=15)
-axs[0].text(2.25, -1.1, 'ARI', fontsize=25)
+axs[0].text(2.25, 6, 'ARI', fontsize=25)
 middle_coord = 6.1
-axs[0].text(middle_coord, 0, '4 clusters:\nIndependent', ha='center', fontsize=13)
-axs[0].text(middle_coord, 1.1, '2 clusters:\nIndependent', ha='center', fontsize=13)
-axs[0].text(middle_coord, 2.2, '2 clusters:\nBlock-dependent\n(low cov.)',
-            ha='center', fontsize=13)
-axs[0].text(middle_coord, 3.2, '2 clusters:\nBlock-dependent\n(high cov.)',
-            ha='center', fontsize=13)
-axs[0].text(middle_coord, 4.2, '2 clusters:\n +/- \n(low cov.)', ha='center', fontsize=13)
-axs[0].text(middle_coord, 5.2, '2 clusters:\n +/- \n(high cov.)',
-            ha='center', fontsize=13)
+axs[0].text(middle_coord, 0, 'M1-C1', ha='center', fontsize=15)
+axs[0].text(middle_coord, 1.1, 'M1-C2', ha='center', fontsize=15)
+axs[0].text(middle_coord, 2.2, 'M1-C3',
+            ha='center', fontsize=15)
+axs[0].text(middle_coord, 3.2, 'M1-C4',
+            ha='center', fontsize=15)
+axs[0].text(middle_coord, 4.2, 'M1-C5', ha='center', fontsize=15)
+axs[0].text(middle_coord, 5.2, 'M1-C6',
+            ha='center', fontsize=15)
 axs[1].axis('off')
 axs[1].grid(False)
-axs[1].text(0, -0.7, 'd2hat \n k-medoids',
+axs[1].text(0, -0.8, 'd2hat \n k-medoids',
             va='center', ha='center', fontsize=15)
-axs[1].text(1, -0.7, 'Wasserstein \n k-medoids',
+axs[1].text(1, -0.8, 'Wasserstein \n k-medoids',
             va='center', ha='center', fontsize=15)
-axs[1].text(2, -0.7, 'Hellinger \n k-medoids',
+axs[1].text(2, -0.8, 'Hellinger \n k-medoids',
             va='center', ha='center', fontsize=15)
-axs[1].text(3, -0.7, 'd2hat \n hierarchical',
+axs[1].text(3, -0.8, 'd2hat \n hierarchical',
             va='center', ha='center', fontsize=15)
-axs[1].text(4, -0.7, 'Wasserstein \n hierarchical',
+axs[1].text(4, -0.8, 'Wasserstein \n hierarchical',
             va='center', ha='center', fontsize=15)
-axs[1].text(5, -0.7, 'Hellinger \n hierarchical',
+axs[1].text(5, -0.8, 'Hellinger \n hierarchical',
             va='center', ha='center', fontsize=15)
 
-axs[1].text(1.75, -1.1, 'V-measure', fontsize=25)
+axs[1].text(1.85, 6, 'V-measure', fontsize=25)
 fig.colorbar(pos_0, ax=axs, anchor=(-0.25, 0.5))
 fig.savefig("sim_cc_rev.pdf")
 plt.show()
